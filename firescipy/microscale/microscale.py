@@ -1,4 +1,4 @@
-from numpy import gradient
+import numpy as np
 
 
 def inst_hr(time_s, temp_C):
@@ -10,7 +10,7 @@ def inst_hr(time_s, temp_C):
     :return: instantaneous heating rate as numpy.ndarray [K/s]
     """
 
-    hr = gradient(temp_C, time_s)
+    hr = np.gradient(temp_C, time_s)
     return hr
 
 
