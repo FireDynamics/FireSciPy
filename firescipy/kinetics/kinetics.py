@@ -1,4 +1,52 @@
 import numpy as np
+import pandas as pd
+
+
+def conversion_integral_data(res_mass_norm):
+    """
+    Calculate conversion for normalised integral data, e.g. TGA residual mass.
+
+    :param res_mass_norm: NumPy array of normalised residual mass
+
+    :return: NumPy array of the conversion from 0 to 1
+    """
+
+    alpha = 1 - res_mass_norm
+
+    return alpha
+
+
+def get_conversion_idx(alpha_i, alpha):
+    """
+    Gets the index of the closest conversion value
+    from a NumPy array or Pandas DataSeries.
+
+    :param alpha_i: specific value of conversion
+    :param alpha: NumPy array, or Pandas DataSeries,
+                  of the conversion from 0 to 1
+
+    :return idx_closest: index of the closest conversion value
+    """
+
+    lower_idx = max(np.where(alpha < alpha_i)[0])
+    upper_idx = min(np.where(alpha > alpha_i)[0])
+
+    if type(alpha) == np.ndarray:
+        lower_val = alpha[lower_idx]
+        upper_val = alpha[upper_idx]
+    elif type(alpha) == pd.core.series.Series:
+        lower_val = alpha.iloc[lower_idx]
+        upper_val = alpha.iloc[upper_idx]
+
+    dist_lower = np.abs(alpha_i - lower_val)
+    dist_upper = np.abs(alpha_i - upper_val)
+
+    if dist_lower < dist_upper:
+        idx_closest = lower_idx
+    else:
+        idx_closest = upper_idx
+
+    return idx_closest
 
 
 # ICTAC Kinetics Committee recommendations for performing kinetic computations on thermal analysis data
