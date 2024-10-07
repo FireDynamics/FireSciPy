@@ -1,6 +1,20 @@
 import numpy as np
 
 
+def conversion_integral_data(res_mass_norm):
+    """
+    Calculate conversion for normalised integral data, e.g. TGA residual mass.
+
+    :param res_mass_norm: NumPy array of normalised residual mass
+
+    :return: NumPy array of the conversion from 0 to 1
+    """
+
+    alpha = 1 - res_mass_norm
+
+    return alpha
+
+
 # ICTAC Kinetics Committee recommendations for performing kinetic computations on thermal analysis data
 # Sergey Vyazovkin et al., 2011
 # doi:10.1016/j.tca.2011.03.034
