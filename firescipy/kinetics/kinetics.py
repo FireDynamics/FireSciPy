@@ -49,6 +49,59 @@ def get_conversion_idx(alpha_i, alpha):
     return idx_closest
 
 
+def conversion_info(alphas, hr_labels, fractions, exp_times, exp_temps):
+    """
+    For desired fractions of conversion, temperatures and time steps are collected
+    and organised per heating rate.
+    This is a pre-processing step to later determine the Arrhenius parameters.
+    The information is collected in a dictionary to simplify further use.
+
+    :param alphas: list of conversions per heating rate
+    :param hr_labels: list with heating rate labels
+    :param fractions: NumPy array of the desired fraction intervals
+    :param exp_times: list of experiment times per heating rate
+    :param exp_temps: list of sample temperatures per heating rate
+
+    :return conv_data: dictionary with conversion data sorted by heating rate
+    """
+
+    # Collect target conversion fractions globally.
+    conv_data = {
+        "Conversion_fractions": fractions,
+        "Conversion_combined": dict()
+    }
+
+    # Convenience.
+    conv_comb = conv_data["Conversion_combined"]
+
+    # Go over all heating rates.
+    for hr_id, hr_label in enumerate(hr_labels):
+        # Prepare data sets.
+        alpha = alphas[hr_id].to_numpy()
+        time = exp_times[hr_id].to_numpy()
+        temp = exp_temps[hr_id].to_numpy()
+
+        # Get indices closest to desired conversion fraction.
+        alpha_indices = list()
+        for fraction in fractions:
+            idx = fsp.get_conversion_idx(fraction, alpha)
+            alpha_indices.append(idx)
+
+        # Get data points associated with the above indices.
+        conv_times = time[alpha_indices]
+        conv_temps = temp[alpha_indices]
+        conv_fracs = alpha[alpha_indices]
+
+        # Combine times, temperatures and fractions.
+        combined = [list(line) for line in zip(conv_times, conv_temps, conv_fracs)]
+        ndf = pd.DataFrame(data=np.array(combined),
+                           columns=["Time", "Temperature", "Alpha"])
+        # Collect result.
+        conv_comb[hr_label] = ndf
+
+    return conv_data
+
+
 def get_activation_energy(conv_data):
     """
     Fits a linear function across heating rates for each conversion fraction.
