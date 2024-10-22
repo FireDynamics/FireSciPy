@@ -49,6 +49,77 @@ def get_conversion_idx(alpha_i, alpha):
     return idx_closest
 
 
+def get_activation_energy(conv_data):
+    """
+    Fits a linear function across heating rates for each conversion fraction.
+    From the inclination and the gas constant R, the activation energy E is determined.
+    Some statistics on the fits is performed. Both, E and statistics
+    are stored in the input dictionary.
+
+    :param conv_data: dictionary with conversion data sorted by heating rate
+
+    :return: results are stored in the conv_data dictionary
+    """
+
+    # Initialise data collection.
+    conv_data["Parameters"] = list()
+    conv_data["Residuals"] = list()
+    conv_data["R_squared"] = list()
+    conv_data["RMSE"] = list()
+    conv_data["E_alpha"] = list()
+
+    # Go over all fractions to compute respective value for E.
+    for frac_id in range(len(conv_data["Conversion_fractions"])):
+        t_combined = list()
+        T_combined = list()
+
+        # Go over all heating rates.
+        hr_labels = list(conv_data["Conversion_combined"])
+        for hr_id, hr_label in enumerate(hr_labels):
+            # Collect data points per fraction.
+            toast = conv_data["Conversion_combined"][hr_label]
+            t_combined.append(toast["Time"].iloc[frac_id])
+            T_combined.append(toast["Temperature"].iloc[frac_id])
+
+        # Prepare data points for fitting.
+        data_x = 1 / (np.array(T_combined) + 273.15)
+        data_y = np.log(1/np.array(t_combined))
+
+        # Define the model function.
+        def model_func(x, m, b):
+            return m * x + b
+
+        # Perform the curve fitting using the original y_values
+        popt, pcov = curve_fit(model_func, data_x, data_y,
+                               maxfev=10000)
+        conv_data["Parameters"].append(popt)
+
+        # Extract the fitted parameters
+        m_fit, b_fit = popt
+        # print(m_fit, b_fit)
+
+        # Generate y-values from the fitted model
+        y_fit = model_func(data_x, m_fit, b_fit)
+
+        # Calculate residuals
+        residuals = data_y - y_fit
+        conv_data["Residuals"].append(residuals)
+
+        # Calculate R-squared
+        ss_res = np.sum(residuals**2)
+        ss_tot = np.sum((data_y - np.mean(data_y))**2)
+        r_squared = 1 - (ss_res / ss_tot)
+        conv_data["R_squared"].append(r_squared)
+
+        # Calculate RMSE
+        rmse = np.sqrt(np.mean(residuals**2))
+        conv_data["RMSE"].append(rmse)
+
+        # Calculate E_alpha_i, in kJ/mol.
+        E_alpha_i = -(m_fit * gas_const) / 1000
+        conv_data["E_alpha"].append(E_alpha_i)
+
+
 # ICTAC Kinetics Committee recommendations for performing kinetic computations on thermal analysis data
 # Sergey Vyazovkin et al., 2011
 # doi:10.1016/j.tca.2011.03.034
