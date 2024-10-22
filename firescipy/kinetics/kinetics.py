@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 
 
+gas_const = 8.31446261815324  # J / (mol * K)
+
+
 def conversion_integral_data(res_mass_norm):
     """
     Calculate conversion for normalised integral data, e.g. TGA residual mass.
@@ -51,8 +54,8 @@ def get_conversion_idx(alpha_i, alpha):
 
 def conversion_info(alphas, hr_labels, fractions, exp_times, exp_temps):
     """
-    For desired fractions of conversion, temperatures and time steps are collected
-    and organised per heating rate.
+    For desired fractions of conversion, temperatures and time steps are
+    collected and organised per heating rate.
     This is a pre-processing step to later determine the Arrhenius parameters.
     The information is collected in a dictionary to simplify further use.
 
@@ -105,9 +108,9 @@ def conversion_info(alphas, hr_labels, fractions, exp_times, exp_temps):
 def get_activation_energy(conv_data):
     """
     Fits a linear function across heating rates for each conversion fraction.
-    From the inclination and the gas constant R, the activation energy E is determined.
-    Some statistics on the fits is performed. Both, E and statistics
-    are stored in the input dictionary.
+    From the inclination and the gas constant R, the activation energy E
+    is determined. Some statistics on the fits is performed. Both, E and
+    statistics are stored in the input dictionary.
 
     :param conv_data: dictionary with conversion data sorted by heating rate
 
