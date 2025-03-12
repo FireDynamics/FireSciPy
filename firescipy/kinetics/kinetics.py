@@ -797,6 +797,181 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
     store_Ea["Ea_results_KAS"] = Ea_results
 
 
+
+
+
+# Define default clipping thresholds
+default_clip_values = {
+    "alpha_min": 1e-10,  # Avoids log(0) or division by zero
+    "alpha_max": 1       # Ensures alpha does not exceed 1
+}
+
+
+def reaction_rate(t, alpha, t_array, T_array, A, E, R=gas_const,
+                   reaction_model='nth_order', model_params=None):
+    """
+    Computes d(alpha)/dt at time t for a given alpha, using the
+    reaction rate constant k(T) (Arrhenius factor) and a chosen
+    reaction model f(alpha).
+    See formula (1.1) in [1].
+
+    Sergey Vyazovkin et al.; 10 June 2011
+    ICTAC Kinetics Committee recommendations for performing
+    kinetic computations on thermal analysis data
+    Thermochimica Acta, Volume 520, Issues 1–2, Pages 1-19
+    https://doi.org/10.1016/j.tca.2011.03.034
+
+    Parameters
+    ----------
+    t : float
+        Current time
+    alpha : float
+        Current conversion fraction
+    t_array : array-like
+        Times at which T_array is known
+    T_array : array-like
+        Temperatures corresponding to t_array
+    A : float
+        Pre-exponential factor
+    E : float
+        Activation energy
+    R : float
+        Gas constant
+    reaction_model : str
+        Key from the f_models dictionary
+    model_params : dict
+        Extra parameters for the chosen reaction model (e.g. {'n': 2.0})
+
+    Returns
+    -------
+    float
+        The derivative d(alpha)/dt
+    """
+    if model_params is None:
+        model_params = {}
+
+    # Interpolate temperature at current time
+    T_current = np.interp(t, t_array, T_array)
+
+    # Reaction rate constant (Arrhenius factor)
+    k_T = A * np.exp(-E / (R * T_current))
+
+    # Fetch the f(alpha) function from the dictionary
+    f_alpha = f_models[reaction_model]
+
+    # Evaluate f(alpha) with any extra model parameters
+    val_f_alpha = f_alpha(alpha, model_params)
+
+    return k_T * val_f_alpha
+
+def solve_kinetics(t_array, T_array, alpha0, A, E, R=gas_const,
+                   reaction_model='nth_order', model_params=None):
+    """
+    Solve for alpha(t) over t_array using the reaction_rate ODE.
+
+    Parameters
+    ----------
+    t_array : array-like
+        Times at which to solve
+    T_array : array-like
+        Corresponding temperatures at those times
+    alpha0 : float
+        Initial conversion (e.g., 0)
+    A : float
+        Pre-exponential factor
+    E : float
+        Activation energy
+    R : float
+        Gas constant
+    model : str
+        Which f(alpha) model to use (key into f_models)
+    model_params : dict
+        Extra parameters for that model, e.g. {'n': 1.0}
+
+    Returns
+    -------
+    sol.t : array
+        The time grid of the solution
+    sol.y[0] : array
+        The computed alpha(t) at each time point
+    """
+    if model_params is None:
+        model_params = {}
+
+    # ODE wrapper for solve_ivp
+    def ode_wrapper(t, alpha):
+        return reaction_rate(t, alpha[0], t_array, T_array,
+                             A, E, R, reaction_model, model_params)
+
+    # Solve from t=0 to t=t_array[-1]
+    sol = solve_ivp(
+        ode_wrapper,
+        (t_array[0], t_array[-1]),
+        [alpha0],        # initial condition
+        t_eval=t_array,rtol=1e-8, atol=1e-10
+    )
+
+    return sol.t, sol.y[0]
+
+
+def gaussian(x, mu, sigma):
+    """
+    Compute the Gaussian (normal) distribution function.
+
+    Parameters:
+    -----------
+    x : float or ndarray
+        The input value(s) where the Gaussian function is evaluated.
+    mu : float
+        The mean (center) of the Gaussian distribution.
+    sigma : float
+        The standard deviation (spread) of the Gaussian distribution. Must be positive.
+
+    Returns:
+    --------
+    float or ndarray
+        The computed value(s) of the Gaussian function at x.
+
+    Notes:
+    ------
+    The Gaussian function is defined as:
+        f(x) = (1 / (sigma * sqrt(2 * pi))) * exp(-0.5 * ((x - mu) / sigma)^2)
+    """
+    exponent = -0.5 * ((x - mu) / sigma) ** 2  # Compute exponent separately for clarity
+    f_x =  (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(exponent)
+    return f_x
+
+
+# Define function to enable the user to adjust the clipping of alpha
+def clip_alpha(alpha, clip_values):
+    """Ensure alpha remains within numerical stability range."""
+    return np.clip(alpha, clip_values["alpha_min"], clip_values["alpha_max"])
+
+# Define function to enable the user to adjust the clipping of alpha
+def clip_alpha(alpha, clip_values):
+    """Ensure alpha remains within numerical stability range."""
+    return np.clip(alpha, clip_values["alpha_min"], clip_values["alpha_max"])
+
+# A dictionary of reaction models f(α) that take extra parameters:
+f_models = {
+    # Formula (1.9); https://doi.org/10.1016/j.tca.2011.03.034
+    'nth_order': lambda alpha, params, clip_values=default_clip_values:
+        (1 - clip_alpha(alpha, clip_values))**params['n'],
+
+    # Formula (1.8); https://doi.org/10.1016/j.tca.2011.03.034
+    'power_law': lambda alpha, params, clip_values=default_clip_values:
+        params['n'] * np.power(clip_alpha(alpha, clip_values), ((params['n']-1)/params['n'])),
+
+    # Formula (1.10); https://doi.org/10.1016/j.tca.2011.03.034
+    'Avrami_Erofeev': lambda alpha, params, clip_values=default_clip_values:
+        params['n'] * (1 - clip_alpha(alpha, clip_values)) * (-np.log(clip_alpha(1 - alpha, clip_values)))**((params['n']-1)/params['n']),
+
+    # Formulas (1.3) and (1.4); https://doi.org/10.1016/j.tca.2022.179384
+    'Sestak_Berggren': lambda alpha, params, clip_values=default_clip_values:
+        params['c'] * clip_alpha(alpha, clip_values)**params['m'] * (1 - clip_alpha(alpha, clip_values))**params['n'] * (-np.log(clip_alpha(1 - alpha, clip_values)))**params['p'],
+}
+
+
 # ICTAC Kinetics Committee recommendations for performing kinetic computations on thermal analysis data
 # Sergey Vyazovkin et al., 2011
 # doi:10.1016/j.tca.2011.03.034
