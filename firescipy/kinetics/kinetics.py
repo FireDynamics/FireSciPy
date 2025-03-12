@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from scipy.integrate import quad
+from scipy.integrate import quad, solve_ivp
 from scipy.optimize import curve_fit, minimize
 from typing import List, Dict, Union  # for type hints in functions
 
