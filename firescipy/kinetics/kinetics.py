@@ -952,6 +952,58 @@ def clip_alpha(alpha, clip_values):
     """Ensure alpha remains within numerical stability range."""
     return np.clip(alpha, clip_values["alpha_min"], clip_values["alpha_max"])
 
+
+def exp_difference(offset, temp_x1, temp_x2, data_y1, data_y2):
+    """
+    Computes the difference between two data series by means of root mean square error (RMSE).
+    An offset is provided such that the difference can be minimised.
+    Parameters:
+        offset (float): to shift the second data series in x
+        temp_x1 (numpy array): x-values of first data series
+        temp_x2 (numpy array): x-values of second data series
+        data_y1 (numpy array): y-values of first data series
+        data_y2 (numpy array): y-values of second data series
+
+    Returns:
+        float: The RMSE value
+    """
+    # Interpolate data_y2 at temp_x1 shifted by offset
+    interpolation = interp1d(temp_x2 + offset, data_y2, kind='linear', fill_value="extrapolate")
+    data_y2_shifted = interpolation(temp_x1)
+
+    # Compute RMSE
+    residuals = calculate_residuals(data_y1, data_y2_shifted)
+    RMSE = calculate_RMSE(residuals)
+
+    return RMSE
+
+
+def compute_optimal_shift(initial_guess, temp_x1, temp_x2, data_y1, data_y2, method="Powell"):
+    """
+    Computes the optimal shift between two data series to reduce the difference.
+    Parameters:
+        initial_guess (float): the initial guess value
+        temp_x1 (numpy array): x-values of first data series
+        temp_x2 (numpy array): x-values of second data series
+        data_y1 (numpy array): y-values of first data series
+        data_y2 (numpy array): y-values of second data series
+        method (string): method used by scipy.optimize.minimise,
+            default here "Powell", trying to avoid getting stuck in local optima
+
+    Returns:
+        float: The optimal shift that leads to the smallest RMSE
+    """
+    # Optimize temperature offset
+    result = minimize(fun=exp_difference, x0=[initial_guess],
+                      args=(temp_x1, temp_x2, data_y1, data_y2),
+                      method=method)
+
+    # Get optimal shift
+    optimal_shift = result.x[0]
+
+    return optimal_shift
+
+
 # A dictionary of reaction models f(α) that take extra parameters:
 f_models = {
     # Formula (1.9); https://doi.org/10.1016/j.tca.2011.03.034
