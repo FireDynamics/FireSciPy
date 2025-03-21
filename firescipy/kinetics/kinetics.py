@@ -521,9 +521,9 @@ def compute_conversion_fractions(database, desired_points=None, setup="constant_
 
     # Helper function to process a single condition
     def process_condition(cond):
-        # Check if combined data exists
-        if "combined" not in database["experiments"]["TGA"][setup][cond]:
-            raise KeyError(f" * No 'combined' data found for condition '{cond}' under '{setup}' setup.")
+        # # Check if combined data exists
+        # if "combined" not in database["experiments"]["TGA"][setup][cond]:
+        #     raise KeyError(f" * No 'combined' data found for condition '{cond}' under '{setup}' setup.")
 
 #         # Check for data type
 #         data_type = database["experiments"]["TGA"][setup][cond].get("data_type")
