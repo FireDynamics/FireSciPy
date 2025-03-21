@@ -915,7 +915,7 @@ def solve_kinetics(t_array, T_array, alpha0, A, E, R=gas_const,
     return sol.t, sol.y[0]
 
 
-def gaussian(x, mu, sigma):
+def gaussian(x, mu, sigma, a=1.0):
     """
     Compute the Gaussian (normal) distribution function.
 
@@ -927,6 +927,8 @@ def gaussian(x, mu, sigma):
         The mean (center) of the Gaussian distribution.
     sigma : float
         The standard deviation (spread) of the Gaussian distribution. Must be positive.
+    a : float
+        A scaling factor of the Gaussian distribution, default: 1.0.
 
     Returns:
     --------
@@ -936,10 +938,11 @@ def gaussian(x, mu, sigma):
     Notes:
     ------
     The Gaussian function is defined as:
-        f(x) = (1 / (sigma * sqrt(2 * pi))) * exp(-0.5 * ((x - mu) / sigma)^2)
+        f(x) = (a / (sqrt(2 * pi))) * exp(-0.5 * ((x - mu) / sigma)^2)
     """
-    exponent = -0.5 * ((x - mu) / sigma) ** 2  # Compute exponent separately for clarity
-    f_x =  (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(exponent)
+    exponent = -0.5 * ((x - mu) / sigma) ** 2
+    normalisation = a / (sigma * np.sqrt(2 * np.pi))
+    f_x =  normalisation * np.exp(exponent)
     return f_x
 
 
