@@ -798,16 +798,6 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
     store_Ea["Ea_results_KAS"] = Ea_results
 
 
-
-
-
-# Define default clipping thresholds
-default_clip_values = {
-    "alpha_min": 1e-10,  # Avoids log(0) or division by zero
-    "alpha_max": 1       # Ensures alpha does not exceed 1
-}
-
-
 def reaction_rate(t, alpha, t_array, T_array, A, E, R=gas_const,
                    reaction_model='nth_order', model_params=None):
     """
@@ -858,10 +848,18 @@ def reaction_rate(t, alpha, t_array, T_array, A, E, R=gas_const,
     k_T = A * np.exp(-E / (R * T_current))
 
     # Fetch the f(alpha) function from the dictionary
-    f_alpha = f_models[reaction_model]
-
-    # Evaluate f(alpha) with any extra model parameters
-    val_f_alpha = f_alpha(alpha, model_params)
+    # f_alpha = f_models[reaction_model]
+    f_alpha = get_reaction_model(reaction_model)
+    
+    # Check if generic or named model
+    if reaction_model in f_models:
+        # Evaluate f(alpha) with any extra model parameters
+        val_f_alpha = f_alpha(alpha, model_params)
+    elif reaction_model in named_models:
+        # Evaluate f(alpha) without extra model parameters
+        val_f_alpha = f_alpha(alpha)
+    else:
+        raise ValueError(f"Reaction model '{reaction_model}' not found.")
 
     return k_T * val_f_alpha
 
@@ -946,17 +944,6 @@ def gaussian(x, mu, sigma, a=1.0):
     return f_x
 
 
-# Define function to enable the user to adjust the clipping of alpha
-def clip_alpha(alpha, clip_values):
-    """Ensure alpha remains within numerical stability range."""
-    return np.clip(alpha, clip_values["alpha_min"], clip_values["alpha_max"])
-
-# Define function to enable the user to adjust the clipping of alpha
-def clip_alpha(alpha, clip_values):
-    """Ensure alpha remains within numerical stability range."""
-    return np.clip(alpha, clip_values["alpha_min"], clip_values["alpha_max"])
-
-
 def exp_difference(offset, temp_x1, temp_x2, data_y1, data_y2):
     """
     Computes the difference between two data series by means of root mean square error (RMSE).
@@ -1008,7 +995,37 @@ def compute_optimal_shift(initial_guess, temp_x1, temp_x2, data_y1, data_y2, met
     return optimal_shift
 
 
-# A dictionary of reaction models f(α) that take extra parameters:
+def get_reaction_model(model_name):
+    """
+    Unified function to retrieve the reaction rate model.
+    """
+    if model_name in named_models:
+        return named_models[model_name]
+    elif model_name in f_models:
+        return f_models[model_name]
+    else:
+        raise ValueError(f"Model '{model_name}' not found in reaction models.")
+
+
+# Define default clipping thresholds
+default_clip_values = {
+    "alpha_min": 1e-12,  # Avoids log(0) or division by zero
+    "alpha_max": 1       # Ensures alpha does not exceed 1
+}
+
+# Define function to enable the user to adjust the clipping of alpha
+def clip_alpha(alpha, clip_values):
+    """
+    Ensure alpha remains within numerical stability range.
+    Specifically, to deal with floating-point errors. They may 
+    slightly push numbers outside of the expected range of alpha=[0,1].
+    This can lead to numerical errors when computations involve 
+    logarithms or power laws.
+    """
+    return np.clip(alpha, clip_values["alpha_min"], clip_values["alpha_max"])
+
+
+# A dictionary of generic reaction models f(α) that take extra parameters:
 f_models = {
     # Formula (1.9); https://doi.org/10.1016/j.tca.2011.03.034
     'nth_order': lambda alpha, params, clip_values=default_clip_values:
@@ -1025,12 +1042,22 @@ f_models = {
     # Formulas (1.3) and (1.4); https://doi.org/10.1016/j.tca.2022.179384
     'Sestak_Berggren': lambda alpha, params, clip_values=default_clip_values:
         params['c'] * clip_alpha(alpha, clip_values)**params['m'] * (1 - clip_alpha(alpha, clip_values))**params['n'] * (-np.log(clip_alpha(1 - alpha, clip_values)))**params['p'],
+    # Add more named models as needed
+}
+
+
+
+# Dictionary of named models with fixed parameters
+named_models = {
+    'D3': lambda alpha, clip_values=default_clip_values: (3/2) * (1 - clip_alpha(alpha, clip_values))**(2/3) * (1 - (1 - clip_alpha(alpha, clip_values))**(1/3))**(-1),
+    'A2': lambda alpha, clip_values=default_clip_values: 2 * (1 - clip_alpha(alpha, clip_values)) * (-np.log(1 - clip_alpha(alpha, clip_values))) ** (1/2)
+    # Add more named models as needed
 }
 
 
 # ICTAC Kinetics Committee recommendations for performing kinetic computations on thermal analysis data
 # Sergey Vyazovkin et al., 2011
-# doi:10.1016/j.tca.2011.03.034
+# https://doi.org/10.1016/j.tca.2011.03.034
 # Table 1: Some of the kinetic models used in the solid-state kinetics.
 
 # Reaction models from Table 1.
