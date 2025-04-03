@@ -43,6 +43,28 @@ def ensure_nested_dict(d, keys):
     return d
 
 
+def store_in_nested_dict(dictionary, new_data, keys):
+    """
+    Stores data in a nested dictionary structure, for the given keys.
+
+    Parameters:
+        dictionary (dict): The dictionary to operate on.
+        new_data: Data to store.
+        keys (list): List of keys representing the nested path.
+
+    Returns:
+        None: Dictionary is changed in place.
+    """
+    if not isinstance(dictionary, dict):
+        raise TypeError("Expected 'dictionary' to be of type dict.")
+
+    if not isinstance(keys, (list, tuple)) or not keys:
+        raise ValueError("Expected 'keys' to be a non-empty list or tuple.")
+
+    storage_location = ensure_nested_dict(dictionary, keys[:-1])
+    storage_location[keys[-1]] = new_data
+
+
 def get_nested_value(nested_dict, keys):
     """
     Access a nested dictionary using a list of keys.
