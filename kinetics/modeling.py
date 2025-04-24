@@ -2,8 +2,10 @@ import numpy as np
 
 from scipy.integrate import solve_ivp
 
+from FireSciPy.constants import GAS_CONSTANT
 
-def reaction_rate(t, alpha, t_array, T_array, A, E, R=gas_const,
+
+def reaction_rate(t, alpha, t_array, T_array, A, E, R=GAS_CONSTANT,
                    reaction_model='nth_order', model_params=None):
     """
     Computes d(alpha)/dt at time t for a given alpha, using the
@@ -68,7 +70,7 @@ def reaction_rate(t, alpha, t_array, T_array, A, E, R=gas_const,
 
     return k_T * val_f_alpha
 
-def solve_kinetics(t_array, T_array, alpha0, A, E, R=gas_const,
+def solve_kinetics(t_array, T_array, alpha0, A, E, R=GAS_CONSTANT,
                    reaction_model='nth_order', model_params=None):
     """
     Solve for alpha(t) over t_array using the reaction_rate ODE.
