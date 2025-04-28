@@ -1,8 +1,57 @@
 import numpy as np
+import pandas as pd
 
 from scipy.integrate import solve_ivp
 
 from FireSciPy.constants import GAS_CONSTANT
+
+
+
+def create_linear_temp_program(start_temp=300, end_temp=700, beta=10, beta_unit="K/min", steps=400):
+    """
+    Create a linear temperature-time program for pyrolysis modeling.
+    Cooling is not supported.
+
+    Parameters:
+        start_temp (float): Starting temperature in Kelvin. Default is 300 K.
+        end_temp (float): Ending temperature in Kelvin. Default is 700 K.
+        beta (float): Heating rate. Default is 10.
+        beta_unit (str): Unit of the heating rate, either "K/min" or "K/s". Default is "K/min".
+        steps (int): Number of steps for the time-temperature array. Default is 400.
+
+    Returns:
+        DataFrame: A Pandas DataFrame with time (in seconds) and temperature (in Kelvin).
+    """
+
+    # Convert the heating rate into Kelvin per second.
+    if beta_unit == "K/min":
+        beta_s = beta / 60
+    elif beta_unit == "K/s":
+        beta_s = beta
+    else:
+        raise ValueError("Provide beta_units, and the respective beta, either in 'K/min' or 'K/s'.")
+
+    # Check if temperature increases (no cooling)
+    if start_temp >= end_temp:
+        raise ValueError("start_temp must be less than end_temp.")
+    # Check if heating rate is positive (no cooling)
+    if beta <= 0:
+        raise ValueError("beta must be greater than zero.")
+
+    # Determine total time required for the heating process
+    delta_temp = end_temp - start_temp
+    heating_time = delta_temp / beta_s
+
+    # Compute time and temperature arrays
+    time = np.linspace(0, heating_time, steps)
+    temperature = start_temp + beta_s * time
+
+    # Create Pandas DataFrame.
+    temp_program = {"Time": time, "Temperature": temperature}
+    temp_program = pd.DataFrame(temp_program)
+
+    # Provide results
+    return temp_program
 
 
 def reaction_rate(t, alpha, t_array, T_array, A, E, R=GAS_CONSTANT,
