@@ -20,7 +20,7 @@ def create_linear_temp_program(start_temp=300, end_temp=700, beta=10, beta_unit=
         steps (int): Number of steps for the time-temperature array. Default is 400.
 
     Returns:
-        DataFrame: A Pandas DataFrame with time (in seconds) and temperature (in Kelvin).
+        Dictionary: A dictionary with Time (in seconds) and Temperature (in Kelvin).
     """
 
     # Convert the heating rate into Kelvin per second.
@@ -48,7 +48,6 @@ def create_linear_temp_program(start_temp=300, end_temp=700, beta=10, beta_unit=
 
     # Create Pandas DataFrame.
     temp_program = {"Time": time, "Temperature": temperature}
-    temp_program = pd.DataFrame(temp_program)
 
     # Provide results
     return temp_program
