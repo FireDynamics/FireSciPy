@@ -570,9 +570,9 @@ def compute_conversion_fractions(database, desired_points=None, setup="constant_
 #     return m * x + b
 
 
-def KAS_Ea(temperature, heating_rate, exponent_B=1.92, C=1.0008):
+def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
     """
-    Kissinger–Akahira–Sunose method (KAS) with optional Starink improvement.
+    Kissinger–Akahira–Sunose method (KAS), with Starink improvement by default.
     Estimates the activation energy (E_a) and pre-exponential factor (A) for a given
     level of conversion. This estimation is based on a linear fit,
     following the isoconersional assumption.
@@ -586,8 +586,8 @@ def KAS_Ea(temperature, heating_rate, exponent_B=1.92, C=1.0008):
     Parameters:
         temperature (array-like): Sample temperatures in Kelvin.
         heating_rate (array-like): Heating rates in Kelvin per second.
-        exponent_B (float): Exponent for temperature (default: 1.92 for Starink improvement).
-        C (float): Coefficient for activation energy calculation (default: 1.0008 for Starink).
+        B (float): Exponent for temperature (default: 1.92 for Starink improvement).
+        C (float): Coefficient for activation energy calculation (default: 1.0008 for Starink improvement).
 
     :return: list, containing:
         parameters of the linear fit,
@@ -605,12 +605,12 @@ def KAS_Ea(temperature, heating_rate, exponent_B=1.92, C=1.0008):
         raise ValueError("temperature and heating_rate must have the same length.")
     if np.any(temperature <= 0) or np.any(heating_rate <= 0):
         raise ValueError("temperature and heating_rate must be positive.")
-    if np.any(np.power(temperature, exponent_B) <= 0):
+    if np.any(np.power(temperature, B) <= 0):
         raise ValueError("Temperature raised to exponent B must be positive.")
 
     # Prepare x and y data for the linear fit
     data_x = 1/temperature
-    data_y = np.log(heating_rate / np.power(temperature, exponent_B))
+    data_y = np.log(heating_rate / np.power(temperature, B))
 
     # Perform the linear fit
     popt, pcov = curve_fit(linear_model,
@@ -624,7 +624,8 @@ def KAS_Ea(temperature, heating_rate, exponent_B=1.92, C=1.0008):
     Ea_i = -(m_fit * GAS_CONSTANT) / C
 
     # Calculate estimate of pre-exponential factor (A)
-    A_i = (Ea_i / GAS_CONSTANT) * np.exp(b_fit)
+    # A_i = (Ea_i / GAS_CONSTANT) * np.exp(b_fit)
+    A_i = b_fit #/ ((1- alpha)**n)
 
     return [popt, Ea_i, A_i, [data_x, data_y]]
 
