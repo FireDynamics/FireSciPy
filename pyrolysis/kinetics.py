@@ -292,7 +292,9 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
     This function computes the conversion (alpha) for a given series of
     integral experimental data, such as mass or concentration, based on the
     formula:
+
         alpha = (m_0 - m_i) / (m_0 - m_f)
+
     where:
         m_0 = initial mass/concentration,
         m_i = instantaneous mass/concentration,
@@ -301,16 +303,22 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
     If `m_0` and `m_f` are not provided, they default to the first and last
     values of the `integral_data` series, respectively.
 
-    Parameters:
-        integral_data (pd.Series or np.ndarray): Experimental data representing
-            integral quantities (e.g., mass over time) to calculate the conversion.
-        m_0 (float, optional): Initial mass/concentration. Defaults to the first
-            value of `integral_data`.
-        m_f (float, optional): Final mass/concentration. Defaults to the last
-            value of `integral_data`.
+    Parameters
+    ----------
+    integral_data : pd.Series or np.ndarray
+        Experimental data representing integral quantities
+        (e.g., mass over time) to calculate the conversion.
+    m_0 : float, optional
+        Initial mass/concentration. Defaults to the first
+        value of `integral_data`.
+    m_f : float, optional
+        Final mass/concentration. Defaults to the last
+        value of `integral_data`.
 
-    Returns:
-        np.ndarray: Array of alpha values representing the conversion as a
+    Returns
+    -------
+    np.ndarray
+        Array of alpha values representing the conversion as a
         function of the provided integral data.
     """
     # Convert the input data to a numpy array for calculations
@@ -332,18 +340,21 @@ def compute_conversion(database, condition="all", setup="constant_heating_rate")
     """
     Compute conversion for one or more experimental conditions in the database.
 
-    Parameters:
-        database (dict): The main data structure storing all experimental data.
-        condition (str or list, optional): The specific experimental condition(s) to process.
-            - If a string is provided, it can be a single condition (e.g., "300_C"), or "all" to process all conditions.
-            - If a list is provided, it should contain multiple condition names.
-        setup (str, optional): The experimental setup to process, either "isothermal" or "constant_heating_rate".
-            Defaults to "constant_heating_rate".
-        # m_0 (float, optional): Initial sample mass. If None, use the first mass value from the data.
-        # m_f (float, optional): Final sample mass. If None, use the last mass value from the data.
+    Parameters
+    ----------
+    database (dict): The main data structure storing all experimental data.
+    condition (str or list, optional): The specific experimental condition(s) to process.
+        - If a string is provided, it can be a single condition (e.g., "300_C"), or "all" to process all conditions.
+        - If a list is provided, it should contain multiple condition names.
+    setup (str, optional): The experimental setup to process, either "isothermal" or "constant_heating_rate".
+        Defaults to "constant_heating_rate".
+    # m_0 (float, optional): Initial sample mass. If None, use the first mass value from the data.
+    # m_f (float, optional): Final sample mass. If None, use the last mass value from the data.
 
-    Returns:
-        None: Adds conversion data directly into the database under each condition.
+    Returns
+    -------
+    None
+        Adds conversion data directly into the database under each condition.
     """
     # Validate setup
     if setup not in {"isothermal", "constant_heating_rate"}:
@@ -503,7 +514,7 @@ def compute_conversion_fractions(database, desired_points=None, setup="constant_
 def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
     """
     Kissinger–Akahira–Sunose method (KAS), with Starink improvement by default.
-    Estimates the activation energy (E_a) and pre-exponential factor (A) for a given
+    Estimates the activation energy (E_a) for a given
     level of conversion. This estimation is based on a linear fit,
     following the isoconersional assumption.
 
@@ -521,8 +532,7 @@ def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
 
     :return: list, containing:
         parameters of the linear fit,
-        activation energy for specified level of conversion (Ea_i) in J/mol
-        pre-exponential factor for specified level of conversion (A) in 1/s
+        activation energy for specified level of conversion (Ea_i) in J/mol,
         list of the points used for the linear fit
 
     """
@@ -553,24 +563,25 @@ def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
     # Calculate estimate of (Ea_i), in J/mol.
     Ea_i = -(m_fit * GAS_CONSTANT) / C
 
-    # Calculate estimate of pre-exponential factor (A)
-    # A_i = (Ea_i / GAS_CONSTANT) * np.exp(b_fit)
-    A_i = b_fit #/ ((1- alpha)**n)
-
-    return [popt, Ea_i, A_i, [data_x, data_y]]
+    return [popt, Ea_i, [data_x, data_y]]
 
 
 def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_rate"], **kwargs):
     """
     Wrapper function to easily compute activation energies using the Kissinger–Akahira–Sunose method.
 
-    Parameters:
-        database (dict): Nested dictionary containing the dataset.
-        data_keys (list): List of keys to locate the dataset within the database.
+    Parameters
+    ----------
+        database: dict
+            Nested dictionary containing the dataset.
+        data_keys: list
+            List of keys to locate the dataset within the database.
         **kwargs: Additional arguments to pass to the KAS_Ea function.
 
-    Returns:
-        None: Stores the results in the parent dictionary of the specified dataset.
+    Returns
+    -------
+        None
+            Stores the results in the parent dictionary of the specified dataset.
     """
     # Safely access the dataset
     dataset = get_nested_value(database, data_keys)
@@ -593,7 +604,6 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
 
     # Prepare data collection.
     Ea = list()
-    A = list()
     m = list()
     b = list()
     r_squared = list()
@@ -611,9 +621,8 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
             conversion_temperatures.append(conv_temp)
 
         # Compute activation energy
-        popt, Ea_i, A_i, data_xy = KAS_Ea(conversion_temperatures, set_values, **kwargs)
+        popt, Ea_i, data_xy = KAS_Ea(conversion_temperatures, set_values, **kwargs)
         Ea.append(Ea_i)
-        A.append(A_i)
 
         # Extract and store the fitted parameters.
         m_fit, b_fit = popt
@@ -644,7 +653,6 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
     Ea_results = pd.DataFrame(
         {"Conversion": conversion_levels,
          "Ea": np.array(Ea),
-         "A": np.array(A),
          "m_fit": np.array(m),
          "b_fit": np.array(b),
          "R_squared": np.array(r_squared),
@@ -659,15 +667,24 @@ def exp_difference(offset, temp_x1, temp_x2, data_y1, data_y2):
     """
     Computes the difference between two data series by means of root mean square error (RMSE).
     An offset is provided such that the difference can be minimised.
-    Parameters:
-        offset (float): to shift the second data series in x
-        temp_x1 (numpy array): x-values of first data series
-        temp_x2 (numpy array): x-values of second data series
-        data_y1 (numpy array): y-values of first data series
-        data_y2 (numpy array): y-values of second data series
 
-    Returns:
-        float: The RMSE value
+    Parameters
+    ----------
+    offset : float
+        Value to shift the second data series in x.
+    temp_x1 : numpy.ndarray
+        x-values of the first data series.
+    temp_x2 : numpy.ndarray
+        x-values of the second data series.
+    data_y1 : numpy.ndarray
+        y-values of the first data series.
+    data_y2 : numpy.ndarray
+        y-values of the second data series.
+
+    Returns
+    -------
+    float
+        The RMSE value.
     """
     # Interpolate data_y2 at temp_x1 shifted by offset
     interpolation = interp1d(temp_x2 + offset, data_y2, kind='linear', fill_value="extrapolate")
@@ -683,17 +700,27 @@ def exp_difference(offset, temp_x1, temp_x2, data_y1, data_y2):
 def compute_optimal_shift(initial_guess, temp_x1, temp_x2, data_y1, data_y2, method="Powell"):
     """
     Computes the optimal shift between two data series to reduce the difference.
-    Parameters:
-        initial_guess (float): the initial guess value
-        temp_x1 (numpy array): x-values of first data series
-        temp_x2 (numpy array): x-values of second data series
-        data_y1 (numpy array): y-values of first data series
-        data_y2 (numpy array): y-values of second data series
-        method (string): method used by scipy.optimize.minimise,
-            default here "Powell", trying to avoid getting stuck in local optima
 
-    Returns:
-        float: The optimal shift that leads to the smallest RMSE
+    Parameters
+    ----------
+    initial_guess: float
+        the initial guess value
+    temp_x1: numpy.ndarray
+        x-values of first data series
+    temp_x2: numpy.ndarray
+        x-values of second data series
+    data_y1: numpy.ndarray
+        y-values of first data series
+    data_y2: numpy.ndarray
+        y-values of second data series
+    method: string
+        method used by scipy.optimize.minimise, default here "Powell",
+        trying to avoid getting stuck in local optima
+
+    Returns
+    -------
+    float
+        The optimal shift that leads to the smallest RMSE
     """
     # Optimize temperature offset
     result = minimize(fun=exp_difference, x0=[initial_guess],

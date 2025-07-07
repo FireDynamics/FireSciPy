@@ -1,6 +1,7 @@
 from . import utils
-from . import kinetics
+from . import pyrolysis
 from . import constants
+from . import handcalculation
 
 
 # from .utils import ensure_nested_dict, get_nested_value, series_to_numpy, linear_model, calculate_residuals, calculate_R_squared, calculate_RMSE

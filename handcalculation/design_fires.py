@@ -1,19 +1,27 @@
+import numpy as np
+
 
 def alpha_t_squared(alpha, Q_max, num_points=20):
     """
     Compute the t-squared fire growth curve.
     See for example "Enclosure Fire Dynamics" by Karlsson and Quintiere, 2000, CRC Press LLC.
 
-    Parameters:
-        alpha (str or float): Fire growth rate [kW/s^2] or growth
-        classification as a string.
-            Accepted strings: "slow", "medium", "fast" and "ultra fast".
-        Q_max (float): Maximum heat release rate [kW].
-        num_points (int): Number of time points for discretization.
+    Parameters
+    ----------
+    alpha : str or float
+        Fire growth rate [kW/s^2] or growth classification as a string.
+        Accepted strings: "slow", "medium", "fast" and "ultra fast".
+    Q_max : float
+        Maximum heat release rate [kW].
+    num_points : int
+        Number of time points for discretization.
 
-    Returns:
-        t_growth (ndarray): Time array [s].
-        Q_growth (ndarray): Heat release rate array [kW].
+    Returns
+    -------
+    t_growth : numpy.ndarray
+        Time array [s].
+    Q_growth : numpy.ndarray
+        Heat release rate array [kW].
     """
 
     # Predefined fire growth rates (in kW/s^2)
@@ -45,15 +53,21 @@ def compute_decay(Q_max, decay_model, **kwargs):
     """
     Compute the decay phase based on the selected decay model.
 
-    Parameters:
-        Q_max (float): Maximum heat release rate [kW].
-        decay_model (str): Type of decay model.
-            Options: "t_squared", "mirrored", "linear", "exponential".
-        kwargs: Additional parameters for the decay model.
+    Parameters
+    ----------
+    Q_max : float
+        Maximum heat release rate [kW].
+    decay_model : str
+        Type of decay model.
+        Options: "t_squared", "mirrored", "linear", "exponential".
+    kwargs: Additional parameters for the decay model.
 
-    Returns:
-        t_decay (ndarray): Time array for the decay phase [s].
-        Q_decay (ndarray): Heat release rate array for the decay phase [kW].
+    Returns
+    -------
+    t_decay : numpy.ndarray
+        Time array for the decay phase [s].
+    Q_decay : numpy.ndarray
+        Heat release rate array for the decay phase [kW].
     """
 
     if decay_model == "t_squared":
@@ -99,16 +113,23 @@ def simple_design_fire(Q_max, Q_total, decay_model="t_squared", **kwargs):
     Create a simple design fire based on t-squared growth and a flexible decay model.
     See for example "Enclosure Fire Dynamics" by Karlsson and Quintiere, 2000, CRC Press LLC.
 
-    Parameters:
-        Q_max (float): Maximum heat release rate [kW].
-        Q_total (float): Total energy released by the fire [kJ].
-        decay_model (str): Decay model.
-            Options: "t_squared", "mirrored", "linear", "exponential".
-        kwargs: Additional parameters for growth and decay.
+    Parameters
+    ----------
+    Q_max : float
+        Maximum heat release rate [kW].
+    Q_total : float
+        Total energy released by the fire [kJ].
+    decay_model : str
+        Decay model.
+        Options: "t_squared", "mirrored", "linear", "exponential".
+    kwargs: Additional parameters for growth and decay.
 
-    Returns:
-        t_combined (ndarray): Combined time array [s].
-        Q_combined (ndarray): Combined heat release rate array [kW].
+    Returns
+    -------
+    t_combined : numpy.ndarray
+        Combined time array [s].
+    Q_combined : numpy.ndarray
+        Combined heat release rate array [kW].
     """
     # Step 0: Get the alpha for the growth and decay phase
     alpha = kwargs.get("alpha", "slow")
