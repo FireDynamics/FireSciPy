@@ -1,5 +1,5 @@
 from . import utils
-from . import kinetics
+from . import pyrolysis
 from . import constants
 
 
