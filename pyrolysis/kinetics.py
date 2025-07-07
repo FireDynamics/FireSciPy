@@ -503,7 +503,7 @@ def compute_conversion_fractions(database, desired_points=None, setup="constant_
 def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
     """
     Kissinger–Akahira–Sunose method (KAS), with Starink improvement by default.
-    Estimates the activation energy (E_a) and pre-exponential factor (A) for a given
+    Estimates the activation energy (E_a) for a given
     level of conversion. This estimation is based on a linear fit,
     following the isoconersional assumption.
 
@@ -521,8 +521,7 @@ def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
 
     :return: list, containing:
         parameters of the linear fit,
-        activation energy for specified level of conversion (Ea_i) in J/mol
-        pre-exponential factor for specified level of conversion (A) in 1/s
+        activation energy for specified level of conversion (Ea_i) in J/mol,
         list of the points used for the linear fit
 
     """
@@ -553,11 +552,7 @@ def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
     # Calculate estimate of (Ea_i), in J/mol.
     Ea_i = -(m_fit * GAS_CONSTANT) / C
 
-    # Calculate estimate of pre-exponential factor (A)
-    # A_i = (Ea_i / GAS_CONSTANT) * np.exp(b_fit)
-    A_i = b_fit #/ ((1- alpha)**n)
-
-    return [popt, Ea_i, A_i, [data_x, data_y]]
+    return [popt, Ea_i, [data_x, data_y]]
 
 
 def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_rate"], **kwargs):
@@ -593,7 +588,6 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
 
     # Prepare data collection.
     Ea = list()
-    A = list()
     m = list()
     b = list()
     r_squared = list()
@@ -611,9 +605,8 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
             conversion_temperatures.append(conv_temp)
 
         # Compute activation energy
-        popt, Ea_i, A_i, data_xy = KAS_Ea(conversion_temperatures, set_values, **kwargs)
+        popt, Ea_i, data_xy = KAS_Ea(conversion_temperatures, set_values, **kwargs)
         Ea.append(Ea_i)
-        A.append(A_i)
 
         # Extract and store the fitted parameters.
         m_fit, b_fit = popt
@@ -644,7 +637,6 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
     Ea_results = pd.DataFrame(
         {"Conversion": conversion_levels,
          "Ea": np.array(Ea),
-         "A": np.array(A),
          "m_fit": np.array(m),
          "b_fit": np.array(b),
          "R_squared": np.array(r_squared),
