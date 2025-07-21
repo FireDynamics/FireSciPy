@@ -1,38 +1,26 @@
-Design Fire Example
-===================
+Simple Design Fire
+==================
 
-This example demonstrates how to generate a simple design fire using a t-squared growth curve
-and an exponential decay phase. The function `simple_design_fire` combines a growth, steady-state,
-and decay phase based on user-specified input parameters. As a result, data time series are provided to be used further, for example in a plot.
 
-It is part of the hand calculation tools available in FireSciPy.
+This usage example shows how to compute a simple t-squared design fire using the
+:func:`firescypy.handcalculation.design_fires.simple_design_fire` function.
 
 .. code-block:: python
 
-    import matplotlib.pyplot as plt
     from firescypy.handcalculation.design_fires import simple_design_fire
 
-    # Define parameters
-    Q_max = 1000  # Maximum heat release rate [kW]
-    Q_total = 300000  # Total energy [kJ]
+    # Define design fire parameters
+    Q_max = 1000       # Maximum HRR [kW]
+    Q_total = 300000   # Total energy [kJ]
     decay_model = "exponential"
 
-    # Optional parameters for exponential decay
+    # Optional keyword arguments
     kwargs = {
-        "alpha": "fast",         # Growth rate classification
-        "decay_constant": 0.03,  # Exponential decay rate [1/s]
-        "t_end": 300,            # Duration of decay phase [s]
+        "alpha": "fast",         # Growth rate
+        "decay_constant": 0.03,  # Decay rate [1/s]
+        "t_end": 300,            # Duration [s]
         "num_points": 100        # Resolution
     }
 
-    # Compute the design fire
+    # Compute time and HRR arrays
     t, Q = simple_design_fire(Q_max, Q_total, decay_model, **kwargs)
-
-    # Plot the result
-    plt.plot(t, Q)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Heat Release Rate [kW]")
-    plt.title("Simple Design Fire Curve")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
