@@ -3,6 +3,8 @@
 
 In this section, the basic pyrolysis modelling capabilities of FireSciPy are introduced.
 
+This example is also available as Jupyter Notebook.
+
 Theoretical Background
 ----------------------
 
@@ -48,6 +50,7 @@ Conversion Modelling in FireSciPy
 
 In this introduction, the conversion of a single-step pyrolysis reaction is modelled. As an example, a linear heating rate of :math:`\beta = 5~K/min` is chosen for the temperature program. The parameters are taken from `Vyazovkin, Advanced Isoconversional Method, 1997 <https://doi.org/10.1007/BF01983708>`_.
 
+
 .. code-block:: python
 
     # Import necessary packages
@@ -59,7 +62,9 @@ In this introduction, the conversion of a single-step pyrolysis reaction is mode
     E = 125.4 * 1000  # J/mol
     alpha0 = 1e-12    # Avoid exactly zero to prevent numerical issues (e.g., division by zero)
 
+
 At first, the linear temperature program needs to be created. Let's assume the sample temperature at the start of the experiment is at 300 K and it will end at a temperature of 750 K. The temperature is to change linearly over time according to the heating rate of :math:`\beta = 5~K/min`. Heating rates can be provided in either :math:`K/min` or :math:`K/s`, just pass the unit as a string, and FireSciPy will internally handle the unit conversion. The recording frequency of the TGA device is assumed to be such that a spacing of :math:`\Delta T = 0.5~K` is achieved. This spacing is a model of the frequency with which a TGA or similar device records the data.
+
 
 .. code-block:: python
 
@@ -80,6 +85,7 @@ At first, the linear temperature program needs to be created. Let's assume the s
         beta=beta,
         beta_unit="K/min",
         steps=n_points)
+
 
 Once the temperature program is set up, the conversion can be computed. The kinetics solver needs to be provided with a couple of parameters: the temperature program (`t_array`, `T_array`), the initial conversion level (`alpha0`), the Arrhenius parameters (`A`, `E`) and the reaction model.
 
@@ -102,7 +108,9 @@ See also: :func:`fsp.pyrolysis.modeling.create_linear_temp_program`, :func:`fsp.
        reaction_model='nth_order',
        model_params={'n': 1.0})
 
+
 Let's plot the conversion against the sample temperature to see the result. The code below will produce a plot showing the conversion as a function of temperature. Users are encouraged to run the example locally to see the result.
+
 
 .. code-block:: python
 
@@ -119,3 +127,5 @@ Let's plot the conversion against the sample temperature to see the result. The 
     plt.tight_layout()
     plt.legend()
     plt.grid()
+
+This example is also available as Jupyter Notebook.
