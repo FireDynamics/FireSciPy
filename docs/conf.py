@@ -8,9 +8,11 @@ author = "Tristan Hehnen, Lukas Arnold"
 release = "0.1.0"
 
 extensions = [
+    "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",  # For NumPy-style docstrings
-    "sphinx.ext.viewcode"
+    "sphinx.ext.viewcode",
+    "sphinx.ext.mathjax"  # or "sphinx.ext.imgmath" for image-based output
 ]
 
 templates_path = ["_templates"]
