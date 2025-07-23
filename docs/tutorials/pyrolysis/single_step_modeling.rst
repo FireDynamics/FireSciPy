@@ -1,5 +1,5 @@
-Single-Step Pyrolysis Kinetics Modelling
-========================================
+1. Single-Step Pyrolysis Kinetics Modelling
+===========================================
 
 In this section, the basic pyrolysis modelling capabilities of FireSciPy are introduced.
 
@@ -24,10 +24,10 @@ Typically, the reaction rate constant :math:`k(T)` is expressed as an Arrhenius 
 
 Where :math:`A` is the pre-exponential factor, :math:`E` the activation energy and :math:`R` the gas constant.
 
-Substituting equation :eq:`rate_const` into :eq:`conversion_rate` and neglecting :math:`h(P)` leads to equation :eq:`conv_rate_short`:
+Substituting equation :eq:`rate_const` into :eq:`conversion_rate` and neglecting :math:`h(P)` leads to equation :eq:`conv_rate_Arrhenius`:
 
 .. math::
-    :label: conv_rate_short
+    :label: conv_rate_Arrhenius
 
     \frac{d \alpha}{dt} = A ~exp \left( -\frac{E}{R ~T}\right) ~f(\alpha)
 
@@ -37,16 +37,16 @@ Together, :math:`A`, :math:`E` and :math:`f(\alpha)` form the kinetic triplet.
 
 More details are available in the recommendations provided by the International Confederation for Thermal Analysis and Calorimetry (ICTAC) Kinetics Committee:
 
-- `ICTAC Kinetics Committee recommendations for performing kinetic computations on thermal analysis data <https://doi.org/10.1016/j.tca.2011.03.034>`_
-- `ICTAC Kinetics Committee recommendations for collecting experimental thermal analysis data for kinetic computations <https://doi.org/10.1016/j.tca.2014.05.036>`_
-- `ICTAC Kinetics Committee recommendations for analysis of multi-step kinetics <https://doi.org/10.1016/j.tca.2020.178597>`_
-- `ICTAC Kinetics Committee recommendations for analysis of thermal decomposition kinetics <https://doi.org/10.1016/j.tca.2022.179384>`_
+- `ICTAC Kinetics Committee recommendations for performing kinetic computations on thermal analysis data, 2011 (https://doi.org/10.1016/j.tca.2011.03.034) <https://doi.org/10.1016/j.tca.2011.03.034>`_
+- `ICTAC Kinetics Committee recommendations for collecting experimental thermal analysis data for kinetic computations, 2014 (https://doi.org/10.1016/j.tca.2014.05.036) <https://doi.org/10.1016/j.tca.2014.05.036>`_
+- `ICTAC Kinetics Committee recommendations for analysis of multi-step kinetics, 2020 (https://doi.org/10.1016/j.tca.2020.178597) <https://doi.org/10.1016/j.tca.2020.178597>`_
+- `ICTAC Kinetics Committee recommendations for analysis of thermal decomposition kinetics, 2023 (https://doi.org/10.1016/j.tca.2022.179384) <https://doi.org/10.1016/j.tca.2022.179384>`_
 
 
 Conversion Modelling in FireSciPy
 ---------------------------------
 
-In this introduction, the conversion of a single-step reaction is modelled. As an example, a linear heating rate of :math:`\beta = 5~K/min` is chosen for the temperature program. The parameters are taken from `Vyazovkin, Advanced Isoconversional Method <https://doi.org/10.1007/BF01983708>`_.
+In this introduction, the conversion of a single-step pyrolysis reaction is modelled. As an example, a linear heating rate of :math:`\beta = 5~K/min` is chosen for the temperature program. The parameters are taken from `Vyazovkin, Advanced Isoconversional Method, 1997 <https://doi.org/10.1007/BF01983708>`_.
 
 .. code-block:: python
 
@@ -59,7 +59,7 @@ In this introduction, the conversion of a single-step reaction is modelled. As a
     E = 125.4 * 1000  # J/mol
     alpha0 = 1e-12    # Avoid exactly zero to prevent numerical issues (e.g., division by zero)
 
-At first, the linear temperature program needs to be created. Let's assume the sample temperature at the start of the experiment is at 300 K and it will end at a temperature of 750 K. The temperature is to change linearly over time according to the heating rate of :math:`\beta = 5~K/min`. Heating rates can be provided in either :math:`K/min` or :math:`K/s`, just pass the unit as a string, and FireSciPy will internally handle the unit conversion. The recording frequency of the TGA device is assumed to be such that a spacing of :math:`\Delta T = 0.5~K` is achieved.
+At first, the linear temperature program needs to be created. Let's assume the sample temperature at the start of the experiment is at 300 K and it will end at a temperature of 750 K. The temperature is to change linearly over time according to the heating rate of :math:`\beta = 5~K/min`. Heating rates can be provided in either :math:`K/min` or :math:`K/s`, just pass the unit as a string, and FireSciPy will internally handle the unit conversion. The recording frequency of the TGA device is assumed to be such that a spacing of :math:`\Delta T = 0.5~K` is achieved. This spacing is a model of the frequency with which a TGA or similar device records the data.
 
 .. code-block:: python
 
@@ -84,7 +84,7 @@ At first, the linear temperature program needs to be created. Let's assume the s
 Once the temperature program is set up, the conversion can be computed. The kinetics solver needs to be provided with a couple of parameters: the temperature program (`t_array`, `T_array`), the initial conversion level (`alpha0`), the Arrhenius parameters (`A`, `E`) and the reaction model.
 
 FireSciPy comes with a small library of different reaction models like `'nth_order'` or `'Avrami_Erofeev'`. The values for their parameters can be provided as a dictionary.
-In this example, we assume a first-order reaction model :math:`f(\alpha) = (1 - \alpha)^n`, which is commonly used in thermal decomposition modeling due to its simplicity.
+In this example, we assume a first-order reaction model :math:`f(\alpha) = (1 - \alpha)^n` with :math:`n = 1`, which is commonly used in thermal decomposition modeling due to its simplicity.
 Thus, the nth-order model is chosen (`'nth_order'`) with the order set to unity `{'n': 1.0}`. The result are data series of how the conversion (`alpha_sol`) changes over time (`t_sol`).
 
 See also: :func:`fsp.pyrolysis.modeling.create_linear_temp_program`, :func:`fsp.pyrolysis.modeling.solve_kinetics`
@@ -100,8 +100,7 @@ See also: :func:`fsp.pyrolysis.modeling.create_linear_temp_program`, :func:`fsp.
     t_sol, alpha_sol = fsp.pyrolysis.modeling.solve_kinetics(
        t_array, T_array, alpha0, A, E,
        reaction_model='nth_order',
-       model_params={'n': 1.0}
-    )
+       model_params={'n': 1.0})
 
 Let's plot the conversion against the sample temperature to see the result. The code below will produce a plot showing the conversion as a function of temperature. Users are encouraged to run the example locally to see the result.
 
@@ -113,6 +112,7 @@ Let's plot the conversion against the sample temperature to see the result. The 
 
 
     # Plot meta data
+    plt.title("Conversion of a Single-Step Pyrolyis Reaction")
     plt.xlabel("Sample Temperature / K")
     plt.ylabel("Conversion ($\\alpha$) / -")
 
