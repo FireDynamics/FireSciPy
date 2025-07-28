@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -9,19 +11,31 @@ from FireSciPy.constants import GAS_CONSTANT
 
 
 
-def initialize_investigation_skeleton(material, investigator=None, instrument=None, date=None, notes=None):
+def initialize_investigation_skeleton(material, investigator=None, instrument=None, date=None, notes=None, signal=None):
     """
     Initialize the skeleton for an investigation data structure.
 
-    Parameters:
-        material (str): Material being investigated.
-        investigator (str): Name of the investigator.
-        instrument (str): Device label.
-        date (str): Date of the investigation.
-        notes (str): Notes of the investigation.
+    Parameters
+    ----------
+    material : str
+        Material being investigated.
+    investigator : str, optional
+        Name of the investigator.
+    instrument : str, optional
+        Device label. For example: "TGA" or "TGA/DSC 3+, Mettler Toledo"
+    date : str, optional
+        Date of the investigation.
+    notes : str, optional
+        Notes of the investigation.
+    signal : dict, optional
+        Contains name and unit of the recorded quantity.
+        For example: {"name": "Mass", "unit": "mg"}
+        Could also be 'HeatFlow' or 'Enthalpy' and so on.
 
-    Returns:
-        dict: Skeleton of the investigation data structure.
+    Returns
+    -------
+    dict
+        Skeleton of the investigation data structure.
     """
 
     skeleton = {
@@ -31,6 +45,7 @@ def initialize_investigation_skeleton(material, investigator=None, instrument=No
             "instrument": instrument,
             "date": date,
             "notes": notes,
+            "signal": signal
         },
         "experiments": dict(),
             # Add more experiment types as needed
@@ -133,150 +148,99 @@ def add_constant_heating_rate_tga(database, condition, repetition, raw_data, dat
     raw_dict[repetition] = raw_data
 
 
-def combine_isothermal_repetitions(database, condition, column_mapping=None):
+def combine_repetitions(database, condition, temp_program="constant_heating_rate", column_mapping=None):
     """
-    Combine raw data from multiple repetitions under a specific isothermal condition.
+    Combine raw data from multiple repetitions for a specific condition.
 
-    Parameters:
-        database (dict): The main data structure storing all experimental data.
-        condition (str): The isothermal condition to combine (e.g., "300_C").
-        column_mapping (dict, optional): Mapping of user-defined column labels
-                                         to standardised labels ('time', 'temp', 'mass').
-                                         Example: {'time': 'Time (s)', 'temp': 'Temperature (deg C)', 'mass': 'Weight (mg)'}
+    Parameters
+    ----------
+    database : dict
+        The main data structure storing all experimental data.
+    condition : str
+        The isothermal condition to combine (e.g., "300_C").
+    temp_program : str
+        The temperature program of the experiment
+        ("isothermal", "constant_heating_rate").
+    column_mapping : dict, optional
+        Mapping of user-defined column labels to standardised
+        labels ('time', 'temp', 'signal').
+        Here, 'signal' indicates the recorded quantity, like 'mass' in the TGA.
+        Example:
+            {'time': 'Time (s)',
+             'temp': 'Temperature (deg C)',
+             'signal': 'Weight (mg)'}
 
-    Returns:
-        None: Updates the dictionary in place, adding the combined data under the specified condition.
+    Returns
+    -------
+    None
+        Updates the dictionary in place, adding the
+        combined data under the specified condition.
     """
-    # Standardised column labels
+
+    # Check if proper temperature program is chosen
+    assert temp_program in ("isothermal", "constant_heating_rate"), f"Unknown temp_program: '{temp_program}'"
+
+    # Check if information about the recorded quantity exists
+    if "signal" not in database.get("general_info", {}):
+        warnings.warn("* Signal metadata missing in general_info. Using 'signal' as default label.")
+
+    # Get info on recorded quantity, with fallbacks if missing
+    signal_meta = database["general_info"].get("signal", dict())
+    signal_name = signal_meta.get("name", "Signal")
+    signal_unit = signal_meta.get("unit", "")
+
+    # Get the raw data and set
+    data_root = database["experiments"]["TGA"][temp_program][condition]
+    raw_data = data_root["raw"]
+
+    # Standardised column label definitions
     standard_columns = {
         'time': 'Time',
         'temp': 'Temperature',
-        'mass': 'Mass'
-    }
+        'signal': signal_name}  # User-defined signal (e.g., "Mass", "HeatFlow")
 
-    # Merge provided mappings with defaults
-    column_mapping = {**standard_columns, **(column_mapping or {})}
+    # Merge user-provided column mapping with defaults,
+    # allow replacement of individual key-value pairs instead of a full dict
+    # Defaults to empty dict() if `column_mapping` is None.
+    column_mapping = {**standard_columns, **(column_mapping or dict())}
 
-    # Access raw data
-    raw_data = database["experiments"]["TGA"]["isothermal"][condition]["raw"]
-
-    # Step 1: Determine the longest time array
-    time_col = column_mapping["time"]
-    longest_time = None
-    for rep in raw_data.values():
-        if longest_time is None or rep[time_col].iloc[-1] > longest_time.iloc[-1]:
-            longest_time = rep[time_col]
-
-    # Interpolation reference
-    reference_time = longest_time.values
-
-    # Step 2: Interpolate all repetitions
-    temp_col = column_mapping["temp"]
-    mass_col = column_mapping["mass"]
-    combined_data = {time_col: reference_time}
-    for rep_name, rep_data in raw_data.items():
-
-        # Ensure required columns exist in the raw data
-        for col in [time_col, temp_col, mass_col]:
-            if col not in rep_data.columns:
-                raise ValueError(f"Column '{col}' must exist in the raw data for repetition '{rep_name}'.")
-
-        # Interpolate temperature and mass
-        combined_data[f"{temp_col}_{rep_name}"] = np.interp(reference_time, rep_data[time_col], rep_data[temp_col])
-        combined_data[f"{mass_col}_{rep_name}"] = np.interp(reference_time, rep_data[time_col], rep_data[mass_col])
-
-    # Step 3: Compute averages and standard deviations
-    combined_data[f"{temp_col}_Avg"] = np.mean(
-        [combined_data[key] for key in combined_data if key.startswith(temp_col + "_")], axis=0
-    )
-    combined_data[f"{temp_col}_Std"] = np.std(
-        [combined_data[key] for key in combined_data if key.startswith(temp_col + "_")], axis=0
-    )
-    combined_data[f"{mass_col}_Avg"] = np.mean(
-        [combined_data[key] for key in combined_data if key.startswith(mass_col + "_")], axis=0
-    )
-    combined_data[f"{mass_col}_Std"] = np.std(
-        [combined_data[key] for key in combined_data if key.startswith(mass_col + "_")], axis=0
-    )
-
-    # Step 4: Store the combined data back into the dictionary
-    database["experiments"]["TGA"]["isothermal"][condition]["combined"] = pd.DataFrame(combined_data)
-
-
-def combine_constant_heating_rate_repetitions(database, condition, column_mapping=None):
-    """
-    Combine raw data from multiple repetitions under a specific constant heating rate condition.
-
-    Parameters:
-        database (dict): The main data structure storing all experimental data.
-        condition (str): The constant heating rate condition to combine (e.g., "10_Kmin").
-        column_mapping (dict, optional): Mapping of user-defined column labels
-                                         to standardised labels ('time', 'temp', 'mass').
-                                         Example: {'time': 'Time (s)', 'temp': 'Temperature (deg C)', 'mass': 'Weight (mg)'}
-
-    Returns:
-        None: Updates the dictionary in place, adding the combined data under the specified condition.
-    """
-
-    # Standardised column labels
-    standard_columns = {
-        'time': 'Time',
-        'temp': 'Temperature',
-        'mass': 'Mass'
-    }
+    # Unpack final column names to be used
     time_col_default = standard_columns["time"]
     temp_col_default = standard_columns["temp"]
-    mass_col_default = standard_columns["mass"]
+    signal_col_default = standard_columns["signal"]
 
-    if column_mapping is None:
-        column_mapping = standard_columns
-#     # Merge provided mappings with defaults
-#     column_mapping = {**standard_columns, **(column_mapping or {})}
-
-    # Access raw data
-    raw_data = database["experiments"]["TGA"]["constant_heating_rate"][condition]["raw"]
-
-    # Step 1: Determine the longest time array
+    # Set column mapping from user input
     time_col = column_mapping["time"]
+    temp_col = column_mapping["temp"]
+    signal_col = column_mapping["signal"]
+
+    # Step 1: Find reference time from longest series
     longest_time = None
     for rep in raw_data.values():
         if longest_time is None or rep[time_col].iloc[-1] > longest_time.iloc[-1]:
             longest_time = rep[time_col]
-
-    # Interpolation reference
     reference_time = longest_time.values
 
-    # Step 2: Interpolate all repetitions
-    temp_col = column_mapping["temp"]
-    mass_col = column_mapping["mass"]
+    # Step 2: Interpolate all repetitions to reference time
     combined_data = {time_col_default: reference_time}
     for rep_name, rep_data in raw_data.items():
-
-        # Ensure required columns exist in the raw data
-        for col in [time_col, temp_col, mass_col]:
+        for col, col_default in [(temp_col, temp_col_default), (signal_col, signal_col_default)]:
             if col not in rep_data.columns:
-                raise ValueError(f"Column '{col}' must exist in the raw data for repetition '{rep_name}'.")
+                raise ValueError(f"Missing column '{col}' in repetition '{rep_name}'.")
 
-        # Interpolate temperature and mass
-        combined_data[f"{temp_col_default}_{rep_name}"] = np.interp(reference_time, rep_data[time_col], rep_data[temp_col])
-        combined_data[f"{mass_col_default}_{rep_name}"] = np.interp(reference_time, rep_data[time_col], rep_data[mass_col])
+            combined_data[f"{col_default}_{rep_name}"] = np.interp(
+                reference_time, rep_data[time_col], rep_data[col])
 
-    # Step 3: Compute averages and standard deviations
-    combined_data[f"{temp_col_default}_Avg"] = np.mean(
-        [combined_data[key] for key in combined_data if key.startswith(temp_col_default + "_")], axis=0
-    )
-    combined_data[f"{temp_col_default}_Std"] = np.std(
-        [combined_data[key] for key in combined_data if key.startswith(temp_col_default + "_")], axis=0
-    )
-    combined_data[f"{mass_col_default}_Avg"] = np.mean(
-        [combined_data[key] for key in combined_data if key.startswith(mass_col_default + "_")], axis=0
-    )
-    combined_data[f"{mass_col_default}_Std"] = np.std(
-        [combined_data[key] for key in combined_data if key.startswith(mass_col_default + "_")], axis=0
-    )
+    # Step 3: Compute mean and std dev
+    for col_default in [temp_col_default, signal_col_default]:
+        values = [combined_data[k] for k in combined_data if k.startswith(f"{col_default}_")]
+        combined_data[f"{col_default}_Avg"] = np.mean(values, axis=0)
+        combined_data[f"{col_default}_Std"] = np.std(values, axis=0)
 
-    # Step 4: Store the combined data back into the dictionary
-    database["experiments"]["TGA"]["constant_heating_rate"][condition]["combined"] = pd.DataFrame(combined_data)
+    # Step 4: Store and return
+    df_combined = pd.DataFrame(combined_data)
+    data_root["combined"] = df_combined
+    return df_combined
 
 
 def differential_conversion(differential_data, m_0=None, m_f=None):
