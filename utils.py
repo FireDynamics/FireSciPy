@@ -10,11 +10,14 @@ def series_to_numpy(data: Union[np.ndarray, pd.Series]) -> np.ndarray:
 
     Parameters
     ----------
-    :param data: Input data, which could be a Pandas Series or a NumPy array
+    data : np.ndarray or pd.Series
+        Input data to be converted. If already a NumPy array,
+        it is returned unchanged.
 
     Returns
     -------
-    :return: NumPy array
+    np.ndarray
+        The input data as a NumPy array.
     """
 
     if type(data) == pd.Series:
@@ -27,66 +30,95 @@ def series_to_numpy(data: Union[np.ndarray, pd.Series]) -> np.ndarray:
     return data
 
 
-def ensure_nested_dict(d, keys):
+def ensure_nested_dict(nested_dict, keys):
     """
-    Ensures a nested dictionary structure exists for the given keys.
-    Parameters:
-        d (dict): The dictionary to operate on.
-        keys (list): List of keys representing the nested path.
-    Returns:
-        dict: The final nested dictionary.
+    Ensures a nested dictionary structure exists the given sequence of keys.
+
+    Parameters
+    ----------
+    nested_dict: dict
+        The dictionary to operate on. It will be modified in place
+        to include the full nested structure.
+    keys : Sequence
+        Sequence of keys representing the path of nested dictionaries to create.
+
+    Returns
+    -------
+    dict
+        The final nested dictionary at the end of the path.
     """
+
+    # Iterate through keys to build the nested structure
     for key in keys:
-        if key not in d:
-            d[key] = dict()
-        d = d[key]
-    return d
+        if key not in nested_dict:
+            nested_dict[key] = dict()
+        nested_dict = nested_dict[key]
+    # Return nested dictionary
+    return nested_dict
 
 
-def store_in_nested_dict(dictionary, new_data, keys):
+def store_in_nested_dict(nested_dict, new_data, keys):
     """
     Stores data in a nested dictionary structure, for the given keys.
+    Intermediate levels will be created if they do not already exist.
 
-    Parameters:
-        dictionary (dict): The dictionary to operate on.
-        new_data: Data to store.
-        keys (list): List of keys representing the nested path.
+    Parameters
+    ----------
+    nested_dict : dict
+        The dictionary to operate on. It will be modified in place
+    new_data : Any
+        Data to store at the specified nested location.
+    keys : Sequence
+        Sequence of keys representing the nested path.
 
-    Returns:
-        None: Dictionary is changed in place.
+    Returns
+    -------
+    None
+        The nested dictionary is changed in place.
     """
-    if not isinstance(dictionary, dict):
+
+    if not isinstance(nested_dict, dict):
         raise TypeError("Expected 'dictionary' to be of type dict.")
 
     if not isinstance(keys, (list, tuple)) or not keys:
         raise ValueError("Expected 'keys' to be a non-empty list or tuple.")
 
-    storage_location = ensure_nested_dict(dictionary, keys[:-1])
+    storage_location = ensure_nested_dict(nested_dict, keys[:-1])
     storage_location[keys[-1]] = new_data
 
 
 def get_nested_value(nested_dict, keys):
     """
-    Access a nested dictionary using a list of keys.
+    Retrieve a value from a nested dictionary, using a sequence of keys.
 
-    Parameters:
-        nested_dict (dict): The nested dictionary to traverse.
-        keys (list): A list of keys specifying the path to the value.
+    Parameters
+    ----------
+    nested_dict : dict
+        The nested dictionary to traverse.
+    keys : Sequence
+        A sequence of keys (e.g., list or tuple) specifying the path
+        to the data.
 
-    Returns:
-        The value at the specified location in the nested dictionary.
+    Returns
+    -------
+    Any
+        The data at the specified location in the nested dictionary.
     """
+
     current = nested_dict
     for key in keys:
         try:
             current = current[key]
-        except ValueError:
+        except KeyError:
             print(f" * The key '{key}' does not exist.")
-            return None  # Return `None` (or another default) if the key is not found
+            # Gracefully return None if any key is missing in the nested path
+            return None
+
     return current
 
 
 def linear_model(x, m, b):
+    # TODO: Move to numpy polyfit/polyval?
     """
     Linear model function: y = mx + b.
     """
@@ -94,23 +126,29 @@ def linear_model(x, m, b):
     return m * x + b
 
 
-def calculate_residuals(data_y, y_fit):
+def calculate_residuals(data_y, fit_y):
     """
     Compute the residuals between observed data and fitted values.
 
-    Residuals represent the difference between actual data points (data_y) and the
-    corresponding predicted values (y_fit). This function is useful for assessing
-    the goodness of fit in regression or curve fitting problems.
+    Residuals are calculated as the difference between actual values (data_y)
+    and predicted values (fit_y). Useful for evaluating the quality of
+    regression or curve fitting results.
 
-    Parameters:
-    data_y (array-like): The observed data values.
-    y_fit (array-like): The predicted or fitted values.
+    Parameters
+    ----------
+    data_y : array-like
+        The observed data values.
+    fit_y : array-like
+        The predicted or fitted values.
 
-    Returns:
-    np.ndarray: The residuals, calculated as data_y - y_fit.
+    Returns
+    -------
+    np.ndarray
+        The residuals, calculated as data_y - fit_y.
     """
+
     # Element-wise subtraction of predicted values from actual data
-    residuals = data_y - y_fit
+    residuals = data_y - fit_y
     return residuals
 
 
@@ -119,22 +157,33 @@ def calculate_R_squared(residuals, data_y):
     Calculate the coefficient of determination (R-squared) for a set of data.
 
     R-squared is defined as:
-        R² = 1 - (SS_res / SS_tot)
+
+    .. math::
+
+        R^2 = 1 - (SS_{res} / SS_{tot})
+
     where SS_res is the sum of squares of residuals (the differences between the
-    observed and predicted values) and SS_tot is the total sum of squares (the
-    differences between the observed values and their mean). This metric indicates
-    the proportion of the variance in the dependent variable that is predictable
-    from the independent variable.
+    observed and predicted values) and SS_tot is the total sum of squares
+    (the differences between the observed values and their mean).
+    This metric indicates the proportion of the variance in the dependent
+    variable that is explained by the model.
 
-    Parameters:
-        residuals (array-like): The residuals (errors) from the fitted model,
-                                typically computed as (observed - predicted).
-        data_y (array-like): The array of observed data values.
+    Parameters
+    ----------
+    residuals : array-like
+        The residuals (errors) from the fitted model,
+        typically computed as (observed - predicted).
+    data_y : array-like
+        The observed data values.
 
-    Returns:
-        float: The R-squared value, which ranges from 0 to 1, where values closer
-               to 1 indicate a better fit.
+    Returns
+    -------
+    float
+        The R-squared value. Higher values indicate a better fit.
+        Note: R² can be negative if the model performs worse
+        than a constant mean.
     """
+
     # Calculate the sum of squares of residuals.
     ss_res = np.sum(residuals**2)
 
@@ -151,16 +200,21 @@ def calculate_RMSE(residuals):
     """
     Compute the Root Mean Squared Error (RMSE) from residuals.
 
-    RMSE is a measure of the differences between predicted and observed values.
-    It provides an estimate of the standard deviation of residuals and is commonly
-    used to quantify the accuracy of a model.
+    RMSE is the square root of the average of the squared residuals.
+    It provides an estimate of the standard deviation of the prediction errors
+    and is commonly used to quantify the accuracy of a model.
 
-    Parameters:
-    residuals (array-like): The residuals (differences between observed and predicted values).
+    Parameters
+    ----------
+    residuals : array-like
+        The residuals (differences between observed and predicted values).
 
-    Returns:
-    float: The RMSE value, representing the average magnitude of residual errors.
+    Returns
+    -------
+    float
+        The RMSE value, representing the standard deviation  of residual errors.
     """
+
     # Compute RMSE by taking the square root of the mean squared residuals
     rmse = np.sqrt(np.mean(residuals**2))
     return rmse
@@ -170,27 +224,30 @@ def gaussian(x, mu, sigma, a=1.0):
     """
     Compute the Gaussian (normal) distribution function.
 
-    Parameters:
-    -----------
+    The Gaussian function is defined as shown below.
+
+    .. math::
+
+        f(x) = \\frac{a}{\\sigma \\sqrt{2\\pi}} \\exp\\left( -\\frac{1}{2} \\left( \\frac{x - \\mu}{\\sigma} \\right)^2 \\right)
+
+    Parameters
+    ----------
     x : float or ndarray
         The input value(s) where the Gaussian function is evaluated.
     mu : float
         The mean (center) of the Gaussian distribution.
     sigma : float
-        The standard deviation (spread) of the Gaussian distribution. Must be positive.
+        The standard deviation (spread) of the Gaussian distribution.
+        Must be positive.
     a : float
         A scaling factor of the Gaussian distribution, default: 1.0.
 
-    Returns:
-    --------
+    Returns
+    -------
     float or ndarray
-        The computed value(s) of the Gaussian function at x.
-
-    Notes:
-    ------
-    The Gaussian function is defined as:
-        f(x) = (a / (sqrt(2 * pi))) * exp(-0.5 * ((x - mu) / sigma)^2)
+        The computed value(s) of the Gaussian function at `x`.
     """
+
     exponent = -0.5 * ((x - mu) / sigma) ** 2
     normalisation = a / (sigma * np.sqrt(2 * np.pi))
     f_x =  normalisation * np.exp(exponent)

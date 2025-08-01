@@ -6,21 +6,35 @@ from scipy.integrate import solve_ivp
 from FireSciPy.constants import GAS_CONSTANT
 
 
-
-def create_linear_temp_program(start_temp=300, end_temp=700, beta=10, beta_unit="K/min", steps=400):
+def create_linear_temp_program(start_temp=300, end_temp=700, beta=10.0, beta_unit="K/min", steps=400):
     """
     Create a linear temperature-time program for pyrolysis modeling.
-    Cooling is not supported.
 
-    Parameters:
-        start_temp (float): Starting temperature in Kelvin. Default is 300 K.
-        end_temp (float): Ending temperature in Kelvin. Default is 700 K.
-        beta (float): Heating rate. Default is 10.
-        beta_unit (str): Unit of the heating rate, either "K/min" or "K/s". Default is "K/min".
-        steps (int): Number of steps for the time-temperature array. Default is 400.
+    The function generates a temperature ramp from `start_temp` to `end_temp`
+    at a constant heating rate (`beta`). The time values are calculated
+    accordingly based on the unit of the heating rate.
 
-    Returns:
-        Dictionary: A dictionary with Time (in seconds) and Temperature (in Kelvin).
+    Cooling programs (where `end_temp` < `start_temp`) are not supported.
+
+    Parameters
+    ----------
+    start_temp : float
+        Starting temperature in Kelvin. Default is 300 K.
+    end_temp : float
+        Ending temperature in Kelvin. Default is 700 K.
+    beta : float
+        Heating rate in specified units (float). Default is 10.0.
+    beta_unit : str
+        Unit of the heating rate, either "K/min" or "K/s". Default is "K/min".
+    steps : int
+        Number of steps for the time-temperature array. Default is 400.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - "Time": array of time values (in seconds)
+        - "Temperature": array of temperature values (in Kelvin).
     """
 
     # Convert the heating rate into Kelvin per second.
@@ -56,43 +70,52 @@ def create_linear_temp_program(start_temp=300, end_temp=700, beta=10, beta_unit=
 def reaction_rate(t, alpha, t_array, T_array, A, E, R=GAS_CONSTANT,
                    reaction_model='nth_order', model_params=None):
     """
-    Computes d(alpha)/dt at time t for a given alpha, using the
-    reaction rate constant k(T) (Arrhenius factor) and a chosen
-    reaction model f(alpha).
-    See formula (1.1) in [1].
+    Compute the reaction rate :math:`\\frac{d\\alpha}{dt}` using Arrhenius
+    kinetics and a reaction model.
 
-    Sergey Vyazovkin et al.; 10 June 2011
-    ICTAC Kinetics Committee recommendations for performing
-    kinetic computations on thermal analysis data
-    Thermochimica Acta, Volume 520, Issues 1–2, Pages 1-19
+    The reaction rate is computed using the Arrhenius expression for the
+    rate constant :math:`k(T) = A \\exp(-E / RT)` and a chosen reaction model
+    :math:`f(\\alpha)`. Temperature :math:`T(t)` is obtained by interpolating
+    `T_array` at the current time `t`.
+
+    .. math::
+
+        \\frac{d\\alpha}{dt} = A \\exp\\left(-\\frac{E}{RT(t)}\\right) f(\\alpha)
+
+    Formula 1.1 in: Vyazovkin et al. (2011). ICTAC Kinetics Committee
+    recommendations for performing kinetic computations on thermal analysis data
+    *Thermochimica Acta*, 520(1–2), 1–19.
     https://doi.org/10.1016/j.tca.2011.03.034
 
     Parameters
     ----------
     t : float
-        Current time
+        Current time (in seconds).
     alpha : float
-        Current conversion fraction
+        Current conversion fraction (dimensionless, between 0 and 1).
     t_array : array-like
-        Times at which T_array is known
+        Time points corresponding to the known temperatures.
     T_array : array-like
-        Temperatures corresponding to t_array
+        Temperatures (in Kelvin) corresponding to `t_array`.
     A : float
-        Pre-exponential factor
+        Pre-exponential factor (in 1/s).
     E : float
-        Activation energy
+        Activation energy (in J/mol).
     R : float
-        Gas constant
+        Gas constant (in J/mol·K). Default is `GAS_CONSTANT`.
     reaction_model : str
-        Key from the f_models dictionary
+        Key identifying the reaction model to use (e.g., `'nth_order'`).
+        Must correspond to a model in the internal `f_models` dictionary.
     model_params : dict
-        Extra parameters for the chosen reaction model (e.g. {'n': 2.0})
+        Additional parameters required by the reaction model
+        (e.g., `{'n': 2.0}` for an nth-order reaction).
 
     Returns
     -------
     float
-        The derivative d(alpha)/dt
+        The reaction rate :math:`\\frac{d\\alpha}{dt}` at the given time `t`.
     """
+
     if model_params is None:
         model_params = {}
 
@@ -118,37 +141,56 @@ def reaction_rate(t, alpha, t_array, T_array, A, E, R=GAS_CONSTANT,
 
     return k_T * val_f_alpha
 
-def solve_kinetics(t_array, T_array, alpha0, A, E, R=GAS_CONSTANT,
+
+def solve_kinetics(t_array, T_array, A, E, alpha0=1e-12, R=GAS_CONSTANT,
                    reaction_model='nth_order', model_params=None):
     """
-    Solve for alpha(t) over t_array using the reaction_rate ODE.
+    Numerically solve the conversion ODE :math:`\\frac{d\\alpha}{dt}` for a
+    given temperature program.
+
+    This function solves the reaction kinetics ODE using Arrhenius temperature
+    dependence and a specified reaction model :math:`f(\\alpha)`. The
+    temperature is interpolated over the given `t_array`, and the solution
+    is returned at the same time points.
+
+    The underlying ODE is defined as:
+
+    .. math::
+
+        \\frac{d\\alpha}{dt} = A \\exp\\left(-\\frac{E}{RT(t)}\\right) f(\\alpha)
 
     Parameters
     ----------
     t_array : array-like
-        Times at which to solve
+        Time values (in seconds) at which the temperature profile is defined and
+        where the solution will be evaluated.
     T_array : array-like
-        Corresponding temperatures at those times
-    alpha0 : float
-        Initial conversion (e.g., 0)
+        Corresponding temperatures (in Kelvin) at each point in `t_array`.
     A : float
-        Pre-exponential factor
+        Pre-exponential factor (in 1/s).
     E : float
-        Activation energy
+        Activation energy (in J/mol).
+    alpha0 : float
+        Initial conversion level. Defaults to 1e-12 to avoid numerical issues
+        with reaction models that are undefined at :math:`\\alpha = 0`,
+        such as the nth-order model.
     R : float
-        Gas constant
-    model : str
-        Which f(alpha) model to use (key into f_models)
+        Gas constant (in J/mol·K). Default is `GAS_CONSTANT`.
+    reaction_model : str
+        Key identifying the reaction model to use (e.g., `'nth_order'`).
+        Must correspond to a model in the internal `f_models` dictionary.
     model_params : dict
-        Extra parameters for that model, e.g. {'n': 1.0}
+        Additional parameters required by the reaction model
+        (e.g., `{'n': 2.0}` for an nth-order reaction).
 
     Returns
     -------
-    sol.t : array
-        The time grid of the solution
-    sol.y[0] : array
-        The computed alpha(t) at each time point
+    t : ndarray
+        Time points (in seconds) at which the solution is evaluated.
+    alpha : ndarray
+        Computed conversion values :math:`\\alpha(t)` at each time point.
     """
+
     if model_params is None:
         model_params = {}
 
@@ -170,8 +212,30 @@ def solve_kinetics(t_array, T_array, alpha0, A, E, R=GAS_CONSTANT,
 
 def get_reaction_model(model_name):
     """
-    Unified function to retrieve the reaction rate model.
+    Retrieve a reaction model function by name.
+
+    This function looks up a callable corresponding to a known reaction
+    model name. The models can be either parameter-free (`named_models`)
+    or parameterized (`f_models`), such as nth-order or Avrami-Erofeev models.
+
+    Parameters
+    ----------
+    model_name : str
+        Name of the reaction model to retrieve. Must be a key in either
+        `named_models` or `f_models`.
+
+    Returns
+    -------
+    callable
+        A function f(alpha) or f(alpha, params) that computes the
+        reaction model value for a given conversion alpha.
+
+    Raises
+    ------
+    ValueError
+        If the model name is not found in any registered model dictionaries.
     """
+
     if model_name in named_models:
         return named_models[model_name]
     elif model_name in f_models:

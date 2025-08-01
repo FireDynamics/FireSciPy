@@ -10,10 +10,13 @@ from FireSciPy.utils import series_to_numpy, ensure_nested_dict, get_nested_valu
 from FireSciPy.constants import GAS_CONSTANT
 
 
-
 def initialize_investigation_skeleton(material, investigator=None, instrument=None, date=None, notes=None, signal=None):
     """
-    Initialize the skeleton for an investigation data structure.
+    Create a base dictionary representing a new investigation.
+
+    This function returns a standardized data structure for documenting
+    experimental investigations (e.g., thermal analysis). Optional metadata
+    like investigator name, instrument, and signal description can be included.
 
     Parameters
     ----------
@@ -22,20 +25,22 @@ def initialize_investigation_skeleton(material, investigator=None, instrument=No
     investigator : str, optional
         Name of the investigator.
     instrument : str, optional
-        Device label. For example: "TGA" or "TGA/DSC 3+, Mettler Toledo"
+        Device label (e.g., "TGA" or "TGA/DSC 3+, Mettler Toledo").
     date : str, optional
         Date of the investigation.
     notes : str, optional
-        Notes of the investigation.
+        Free-form notes or comments about the investigation.
     signal : dict, optional
-        Contains name and unit of the recorded quantity.
-        For example: {"name": "Mass", "unit": "mg"}
-        Could also be 'HeatFlow' or 'Enthalpy' and so on.
+        Dictionary describing the primary measurement signal.
+        For example: {"name": "Mass", "unit": "mg"}.
+        Common alternatives include {"name": "HeatFlow"}
+        or {"name": "Enthalpy"}.
+        This field guides downstream analysis and unit handling.
 
     Returns
     -------
     dict
-        Skeleton of the investigation data structure.
+        A dictionary representing the initialized investigation skeleton.
     """
 
     skeleton = {
@@ -59,24 +64,37 @@ def add_isothermal_tga(database, condition, repetition, raw_data, data_type=None
     Add raw data for an isothermal TGA experiment to the database.
 
     This function ensures that the hierarchical structure for storing isothermal
-    TGA experiment data is present in the database. If the structure does not exist,
-    it will be created. Then, the provided raw data for a specific experimental
-    condition and repetition is added to the database.
+    TGA experiment data is present in the database. If the structure does not
+    exist, it will be created. Then, the provided raw data for a specific
+    experimental condition and repetition is added to the database.
 
-    Parameters:
-        database (dict): The main dictionary where all experimental data is stored.
-        condition (str): The experimental condition (e.g., "300_C") under which the
-                         isothermal TGA data was collected.
-        repetition (str): Identifier for the specific repetition of the experiment
-                          (e.g., "Rep_1", "Rep_2").
-        raw_data (pd.DataFrame): The raw data collected for the specific experiment
-                                 and repetition.
-        data_type (str, optional): The type of data ("differential" or "integral").
-                                   Defaults to None, leaving it unchanged if already defined.
-        set_value (list): The nominal temperature program, value and unit [float, str] (e.g. [300, "°C"]). Defaults to None.
+    The `database` argument is expected to be a nested dictionary
+    following the structure created by `initialize_investigation_skeleton()`.
 
-    Returns:
-        None: Updates the dictionary in place, adding the isothermal data under the specified condition.
+    Parameters
+    ----------
+    database : dict
+        The main dictionary where all experimental data is stored.
+    condition : str
+        The experimental condition (e.g., "300_C") under which the
+        isothermal TGA data was collected.
+    repetition : str
+        Identifier for the specific repetition of the experiment
+        (e.g., "Rep_1", "Rep_2").
+    raw_data : pd.DataFrame
+        The raw data collected for the specific condition and repetition.
+    data_type : str, optional
+        Type of data: "differential" or "integral". Defaults to None.
+        If not provided, existing value in database is kept.
+    set_value : list of [float, str]
+        The nominal temperature program, value and unit [float, str]
+        (e.g. [300, "°C"]). Defaults to None.
+
+    Returns
+    -------
+    None
+        Updates the database in place, adding the isothermal data under
+        the specified condition and repetition.
     """
 
     # Ensure the path exists
@@ -85,9 +103,9 @@ def add_isothermal_tga(database, condition, repetition, raw_data, data_type=None
 
     # Get the nominal temperature program setting
     if set_value == None:
-        nominal_beta = {"Value": None, "Unit": None}
+        nominal_beta = {"value": None, "unit": None}
     else:
-        nominal_beta = {"Value": set_value[0], "Unit": set_value[1]}
+        nominal_beta = {"value": set_value[0], "unit": set_value[1]}
     database["experiments"]["TGA"]["isothermal"][condition]["set_value"] = nominal_beta
 
     # Add data type
@@ -105,25 +123,38 @@ def add_constant_heating_rate_tga(database, condition, repetition, raw_data, dat
     """
     Add raw data for a constant heating rate TGA experiment to the database.
 
-    This function ensures that the hierarchical structure for storing constant
-    heating rate TGA experiment data is present in the database. If the structure
-    does not exist, it will be created. Then, the provided raw data for a
-    specific experimental condition and repetition is added to the database.
+    This function ensures that the hierarchical structure needed to store
+    constant heating rate TGA data exists in the `database`.
+    If not, it is created automatically. The provided raw data for a
+    specific experimental condition and repetition is then added
+    to the database.
 
-    Parameters:
-        database (dict): The main dictionary where all experimental data is stored.
-        condition (str): The experimental condition (e.g., "10_Kmin") under which the
-                         constant heating rate TGA data was collected.
-        repetition (str): Identifier for the specific repetition of the experiment
-                          (e.g., "Rep_1", "Rep_2").
-        raw_data (pd.DataFrame): The raw data collected for the specific experiment
-                                 and repetition.
-        data_type (str, optional): The type of data ("differential" or "integral").
-                                   Defaults to None, leaving it unchanged if already defined.
-        set_value (list): The nominal temperature program, value and unit [float, str] (e.g. [2.5, "K/min"]). Defaults to None.
+    The `database` argument is expected to be a nested dictionary
+    following the structure created by `initialize_investigation_skeleton()`.
 
-    Returns:
-        None: Updates the dictionary in place, adding the constant heating rate data under the specified condition.
+    Parameters
+    ----------
+    database : dict
+        The main dictionary where all experimental data is stored.
+    condition : str
+        The experimental condition (e.g., "10_Kmin") under which the
+        constant heating rate TGA data was collected.
+    repetition : str
+        Identifier for the specific repetition of the experiment
+        (e.g., "Rep_1", "Rep_2").
+    raw_data : pd.DataFrame
+        The raw data collected for the specific condition repetition.
+    data_type : str, optional
+        Type of data: "differential" or "integral". Defaults to None.
+        If not provided, existing value in database is kept.
+    set_value : list of [float, str]
+        The nominal temperature program, value and unit [float, str]
+        (e.g. [2.5, "K/min"]). Defaults to None.
+
+    Returns
+    -------
+    None
+        Updates the dictionary in place, adding the constant heating rate data under the specified condition.
     """
 
     # Ensure the path exists
@@ -132,9 +163,9 @@ def add_constant_heating_rate_tga(database, condition, repetition, raw_data, dat
 
     # Get the nominal temperature program setting
     if set_value == None:
-        nominal_beta = {"Value": None, "Unit": None}
+        nominal_beta = {"value": None, "unit": None}
     else:
-        nominal_beta = {"Value": set_value[0], "Unit": set_value[1]}
+        nominal_beta = {"value": set_value[0], "unit": set_value[1]}
     database["experiments"]["TGA"]["constant_heating_rate"][condition]["set_value"] = nominal_beta
 
     # Add data type
@@ -152,29 +183,43 @@ def combine_repetitions(database, condition, temp_program="constant_heating_rate
     """
     Combine raw data from multiple repetitions for a specific condition.
 
+    This function extracts and combines raw data for a given experimental
+    condition (e.g., "300_C" or "10_Kmin") under a specified temperature
+    program (e.g., "isothermal" or "constant_heating_rate").
+
+    The `column_mapping` parameter allows data files with non-standard column
+    headers to be mapped into a unified format expected by downstream functions.
+    For example, :func:`compute_conversion` expects columns labeled 'Time',
+    'Temperature', and the signal name defined in the investigation skeleton.
+
     Parameters
     ----------
     database : dict
         The main data structure storing all experimental data.
+        Should follow the format initialized
+        by :func:`initialize_investigation_skeleton()`.
     condition : str
-        The isothermal condition to combine (e.g., "300_C").
+        The condition to combine (e.g., "300_C" or "10_Kmin").
     temp_program : str
         The temperature program of the experiment
-        ("isothermal", "constant_heating_rate").
+        (e.g. "isothermal" or "constant_heating_rate").
     column_mapping : dict, optional
-        Mapping of user-defined column labels to standardised
-        labels ('time', 'temp', 'signal').
+        Mapping from custom column labels to standardised ones.
+        Expected keys: 'time', 'temp', and 'signal'.
         Here, 'signal' indicates the recorded quantity, like 'mass' in the TGA.
-        Example:
-            {'time': 'Time (s)',
-             'temp': 'Temperature (deg C)',
-             'signal': 'Weight (mg)'}
+        Example::
+
+            {
+                'time': 'Time (s)',
+                'temp': 'Temperature (deg C)',
+                'signal': 'Mass (mg)'
+            }
 
     Returns
     -------
     None
-        Updates the dictionary in place, adding the
-        combined data under the specified condition.
+        Updates the dictionary in place, adding the combined data
+        under the specified condition and temperature program.
     """
 
     # Check if proper temperature program is chosen
@@ -253,11 +298,13 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
     """
     Calculate the conversion (alpha) from integral experimental data.
 
-    This function computes the conversion (alpha) for a given series of
+    This function computes the conversion (alpha) for a series of
     integral experimental data, such as mass or concentration, based on the
     formula:
 
-        alpha = (m_0 - m_i) / (m_0 - m_f)
+    .. math::
+
+        \\alpha = \\frac{m_0 - m_i}{m_0 - m_f}
 
     where:
         m_0 = initial mass/concentration,
@@ -271,7 +318,7 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
     ----------
     integral_data : pd.Series or np.ndarray
         Experimental data representing integral quantities
-        (e.g., mass over time) to calculate the conversion.
+        (e.g., mass or concentration over time) to calculate the conversion.
     m_0 : float, optional
         Initial mass/concentration. Defaults to the first
         value of `integral_data`.
@@ -282,9 +329,9 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
     Returns
     -------
     np.ndarray
-        Array of alpha values representing the conversion as a
-        function of the provided integral data.
+        Array of alpha values representing the conversion.
     """
+
     # Convert the input data to a numpy array for calculations
     m_i = series_to_numpy(integral_data)
 
@@ -302,24 +349,34 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
 
 def compute_conversion(database, condition="all", setup="constant_heating_rate"):
     """
-    Compute conversion for one or more experimental conditions in the database.
+    Compute conversion values from experimental or model data for one or more
+    conditions.
+
+    This function processes combined experimental data in the given `database`
+    and adds conversion values (alpha) under each specified condition.
+
+    Requires combined data to be present under each condition, typically created
+    using :func:`combine_repetitions`.
 
     Parameters
     ----------
-    database (dict): The main data structure storing all experimental data.
-    condition (str or list, optional): The specific experimental condition(s) to process.
-        - If a string is provided, it can be a single condition (e.g., "300_C"), or "all" to process all conditions.
-        - If a list is provided, it should contain multiple condition names.
-    setup (str, optional): The experimental setup to process, either "isothermal" or "constant_heating_rate".
-        Defaults to "constant_heating_rate".
-    # m_0 (float, optional): Initial sample mass. If None, use the first mass value from the data.
-    # m_f (float, optional): Final sample mass. If None, use the last mass value from the data.
+    database : dict
+        The main data structure storing all experimental data.
+    condition : str or list, optional
+        The specific experimental condition(s) to process.
+        If a string is provided, it can be a single condition
+        (e.g., "300_C"), or "all" to process all conditions.
+        If a list is provided, it should contain multiple condition labels.
+    setup : str, optional
+        The experimental setup to process, either "isothermal" or "constant_heating_rate". Defaults to "constant_heating_rate".
 
     Returns
     -------
     None
-        Adds conversion data directly into the database under each condition.
+        Updates the database in place by adding conversion data under
+        each condition.
     """
+
     # Validate setup
     if setup not in {"isothermal", "constant_heating_rate"}:
         raise ValueError(f"Invalid setup '{setup}'. Must be 'isothermal' or 'constant_heating_rate'.")
@@ -381,22 +438,39 @@ def compute_conversion(database, condition="all", setup="constant_heating_rate")
         process_condition(cond)
 
 
-def compute_conversion_fractions(database, desired_points=None, setup="constant_heating_rate", condition="all"):
+def compute_conversion_levels(database, desired_levels=None, setup="constant_heating_rate", condition="all"):
     """
-    Interpolate conversion data to desired alpha (conversion) points for specified experimental conditions.
+    Interpolate conversion (alpha) data to desired conversion levels (fractions)
+    for specified experimental conditions.
 
-    Parameters:
-        database (dict): The main data structure storing all experimental data.
-        desired_points (array-like, optional): Desired conversion levels (alpha values) for interpolation.
-            Defaults to np.linspace(0.05, 0.95, 37).
-        setup (str, optional): The experimental setup to process, either "isothermal" or "constant_heating_rate".
-            Defaults to "constant_heating_rate".
-        condition (str or list, optional): The specific experimental condition(s) to process.
-            - If a string is provided, it can be a single condition (e.g., "300_C"), or "all" to process all conditions.
-            - If a list is provided, it should contain multiple condition names.
+    This function interpolates the conversion values across different
+    conditions to align them with a common set of points. This ensures
+    consistency in follow-up steps such as isoconversional analysis.
 
-    Returns:
-        None: Adds interpolated conversion fraction data directly into the database under each condition.
+    Parameters
+    ----------
+    database : dict
+        The main data structure storing all experimental data.
+        Must follow the format initialized by
+        :func:`initialize_investigation_skeleton`.
+    desired_levels : array-like, optional
+        Desired conversion levels (fractions) for interpolation.
+        Defaults to `np.linspace(0.05, 0.95, 37)`.
+    setup : str, optional
+        The temperature program to process, either "isothermal" or
+        "constant_heating_rate".
+        Defaults to "constant_heating_rate".
+    condition : str or list, optional
+        The specific experimental condition(s) to process.
+        If a string is provided, it can be a single condition (e.g., "300_C"),
+        or "all" to process all conditions.
+        If a list is provided, it should contain multiple condition names.
+
+    Returns
+    -------
+    None
+        Updates the database in place by adding the interpolated
+        conversion levels under each condition and setup.
     """
 
     # Validate setup
@@ -478,28 +552,47 @@ def compute_conversion_fractions(database, desired_points=None, setup="constant_
 def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
     """
     Kissinger–Akahira–Sunose method (KAS), with Starink improvement by default.
-    Estimates the activation energy (E_a) for a given
-    level of conversion. This estimation is based on a linear fit,
-    following the isoconersional assumption.
+    Estimates the activation energy for a given level of conversion
+    :math:`E_{\\alpha}`. This estimation is based on a
+    linear regression based on the isoconversional assumption.
+    By default, the Starink correction is used (B = 1.92, C = 1.0008).
 
-    Reference:
-    Formular 3.10 in
-    ICTAC Kinetics Committee recommendations for performing kinetic
-    computations on thermal analysis data
-    (Vyazovkin et al., 2011, doi:10.1016/j.tca.2011.03.034)
+    The KAS equation is presented below.
 
-    Parameters:
-        temperature (array-like): Sample temperatures in Kelvin.
-        heating_rate (array-like): Heating rates in Kelvin per second.
-        B (float): Exponent for temperature (default: 1.92 for Starink improvement).
-        C (float): Coefficient for activation energy calculation (default: 1.0008 for Starink improvement).
+    .. math::
 
-    :return: list, containing:
-        parameters of the linear fit,
-        activation energy for specified level of conversion (Ea_i) in J/mol,
-        list of the points used for the linear fit
+        \\ln\\left( \\frac{\\beta_i}{T_{\\alpha,i}^{B}} \\right)
+        = \\text{Const} - C \\left( \\frac{E_{\\alpha}}{R\\, T_{\\alpha,i}} \\right)
 
+    Formula 3.10 in: Vyazovkin et al. (2011). ICTAC Kinetics Committee
+    recommendations for performing kinetic computations on thermal analysis data
+    *Thermochimica Acta*, 520(1–2), 1–19.
+    https://doi.org/10.1016/j.tca.2011.03.034
+
+    Parameters
+    ----------
+    temperature : array-like
+        Sample temperatures in Kelvin.
+    heating_rate : array-like
+        Heating rates in Kelvin per second.
+    B : float
+        Exponent for the temperature term. Default is 1.92
+        (Starink improvement).
+    C : float
+        Coefficient for activation energy expression. Default is 1.0008
+        (Starink improvement).
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+
+        - slope (float): Slope of the linear fit.
+        - intercept (float): Intercept of the linear fit.
+        - Ea_i (float): Apparent activation energy in J/mol.
+        - fit_points (tuple): Data points (x, y) used for the linear fit.
     """
+
     # Ensure numpy arrays
     temperature = series_to_numpy(temperature)
     heating_rate = series_to_numpy(heating_rate)
@@ -515,6 +608,7 @@ def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
     # Prepare x and y data for the linear fit
     data_x = 1/temperature
     data_y = np.log(heating_rate / np.power(temperature, B))
+    fit_points = (data_x, data_y)
 
     # Perform the linear fit
     popt, pcov = curve_fit(linear_model,
@@ -527,26 +621,54 @@ def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
     # Calculate estimate of (Ea_i), in J/mol.
     Ea_i = -(m_fit * GAS_CONSTANT) / C
 
-    return [popt, Ea_i, [data_x, data_y]]
+    # TODO: consider to use namedtuple or dataclass
+    return popt, Ea_i, fit_points
 
 
 def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_rate"], **kwargs):
     """
-    Wrapper function to easily compute activation energies using the Kissinger–Akahira–Sunose method.
+    Wrapper function to easily compute activation energies using the Kissinger–Akahira–Sunose (KAS) method.
+
+    This function applies the KAS method to interpolated conversion data
+    (as prepared by :func:`compute_conversion_levels`) and estimates the
+    activation energy (:math:`E_a`) at each conversion level. It computes
+    linear regression statistics, including RMSE and R², and stores the results
+    in a DataFrame.
+
+    The final DataFrame is stored in the database at the specified location
+    defined by `data_keys`.
+
+    This function requires that :func:`compute_conversion_levels` has been
+    called beforehand to prepare the input data.
 
     Parameters
     ----------
-        database: dict
-            Nested dictionary containing the dataset.
-        data_keys: list
-            List of keys to locate the dataset within the database.
-        **kwargs: Additional arguments to pass to the KAS_Ea function.
+    database : dict
+        The main data structure storing all experimental data.
+        Must follow the format initialized by
+        :func:`initialize_investigation_skeleton`.
+    data_keys: list
+        Keys that define the path to the relevant dataset inside the database.
+        For example: ["experiments", "TGA", "constant_heating_rate"].
+    **kwargs
+        Additional arguments passed to :func:`KAS_Ea`.
+        For example, to override the default Starink constants (B, C).
 
     Returns
     -------
-        None
-            Stores the results in the parent dictionary of the specified dataset.
+    None
+        Adds a DataFrame named ``Ea_results_KAS`` to the corresponding location
+        in the database. The DataFrame contains:
+
+        - ``Conversion``: Conversion level α
+        - ``Ea``: Activation energy in J/mol
+        - ``m_fit``: Slope of the linear fit
+        - ``b_fit``: Intercept of the linear fit
+        - ``R_squared``: Coefficient of determination
+        - ``RMSE``: Root mean square error
+        - ``fit_points``: Data points used in the linear fit
     """
+
     # Safely access the dataset
     dataset = get_nested_value(database, data_keys)
     if dataset is None:
@@ -585,7 +707,7 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
             conversion_temperatures.append(conv_temp)
 
         # Compute activation energy
-        popt, Ea_i, data_xy = KAS_Ea(conversion_temperatures, set_values, **kwargs)
+        popt, Ea_i, fit_points = KAS_Ea(conversion_temperatures, set_values, **kwargs)
         Ea.append(Ea_i)
 
         # Extract and store the fitted parameters.
@@ -594,7 +716,7 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
         b.append(b_fit)
 
         # Generate y-values from the fitted model.
-        data_x, data_y = data_xy
+        data_x, data_y = fit_points
         y_fit = linear_model(data_x, m_fit, b_fit)
 
         # Calculate residuals.
@@ -629,27 +751,40 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
 
 def exp_difference(offset, temp_x1, temp_x2, data_y1, data_y2):
     """
-    Computes the difference between two data series by means of root mean square error (RMSE).
-    An offset is provided such that the difference can be minimised.
+    Compute the RMSE between two data series after applying a shift
+    to the second x-axis.
+
+    The function shifts `temp_x2` by a given `offset`, interpolates the
+    corresponding `data_y2` onto the `temp_x1` grid using linear interpolation,
+    and computes the root mean square error (RMSE) between `data_y1` and the
+    interpolated `data_y2`.
+
+    This is useful for aligning two experimental or simulated curves when a
+    shift in the x-dimension (e.g., time or temperature) is expected.
+
+    Linear interpolation is done via `scipy.interpolate.interp1d` with
+    extrapolation enabled outside the original `temp_x2` range.
 
     Parameters
     ----------
     offset : float
-        Value to shift the second data series in x.
-    temp_x1 : numpy.ndarray
-        x-values of the first data series.
-    temp_x2 : numpy.ndarray
-        x-values of the second data series.
-    data_y1 : numpy.ndarray
-        y-values of the first data series.
-    data_y2 : numpy.ndarray
-        y-values of the second data series.
+        Horizontal shift applied to `temp_x2` before interpolation.
+    temp_x1 : array-like
+        x-values of the alignment target (evaluation grid).
+    temp_x2 : array-like
+        x-values of the data series to be shifted.
+    data_y1 : array-like
+        y-values corresponding to `temp_x1`.
+    data_y2 : array-like
+        y-values corresponding to `temp_x2`.
 
     Returns
     -------
     float
-        The RMSE value.
+        Root mean square error (RMSE) between `data_y1` and the
+        interpolated, shifted version of `data_y2`.
     """
+
     # Interpolate data_y2 at temp_x1 shifted by offset
     interpolation = interp1d(temp_x2 + offset, data_y2, kind='linear', fill_value="extrapolate")
     data_y2_shifted = interpolation(temp_x1)
@@ -663,29 +798,36 @@ def exp_difference(offset, temp_x1, temp_x2, data_y1, data_y2):
 
 def compute_optimal_shift(initial_guess, temp_x1, temp_x2, data_y1, data_y2, method="Powell"):
     """
-    Computes the optimal shift between two data series to reduce the difference.
+    Find the optimal horizontal shift that aligns two data series by
+    minimizing RMSE.
+
+    This function optimizes the x-axis shift applied to `temp_x2` so that the
+    interpolated `data_y2` best matches `data_y1`, evaluated over `temp_x1`.
+    The objective function is root mean square error (RMSE), minimized using
+    `scipy.optimize.minimize`.
 
     Parameters
     ----------
-    initial_guess: float
-        the initial guess value
-    temp_x1: numpy.ndarray
-        x-values of first data series
-    temp_x2: numpy.ndarray
-        x-values of second data series
-    data_y1: numpy.ndarray
-        y-values of first data series
-    data_y2: numpy.ndarray
-        y-values of second data series
-    method: string
-        method used by scipy.optimize.minimise, default here "Powell",
-        trying to avoid getting stuck in local optima
+    initial_guess : float
+        Initial guess for the x-axis shift.
+    temp_x1 : array-like
+        x-values of the alignment target (evaluation grid).
+    temp_x2 : array-like
+        x-values of the data series to be shifted.
+    data_y1 : array-like
+        y-values corresponding to `temp_x1`.
+    data_y2 : array-like
+        y-values corresponding to `temp_x2`.
+    method : str, optional
+        Optimization method passed to `scipy.optimize.minimize`.
+        Default is "Powell" for robustness against local minima.
 
     Returns
     -------
     float
-        The optimal shift that leads to the smallest RMSE
+        The optimal shift that minimizes RMSE between the two series.
     """
+
     # Optimize temperature offset
     result = minimize(fun=exp_difference, x0=[initial_guess],
                       args=(temp_x1, temp_x2, data_y1, data_y2),
