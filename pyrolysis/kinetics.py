@@ -680,10 +680,10 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
         raise ValueError(f"Unable to store results; parent keys not found: {data_keys[:-1]}")
 
     # Sort the keys of the dataset based on the heating rate values in the nested dictionary
-    set_value_keys = sorted(dataset.keys(), key=lambda x: dataset[x]["set_value"]["Value"])
+    set_value_keys = sorted(dataset.keys(), key=lambda x: dataset[x]["set_value"]["value"])
 
     # Sort the set values themselves
-    set_values = sorted(dataset[key]["set_value"]["Value"] for key in dataset.keys())
+    set_values = sorted(dataset[key]["set_value"]["value"] for key in dataset.keys())
 
     # Get number of conversion levels
     conversion_levels = dataset[set_value_keys[0]]["conversion_fractions"]["Alpha"]
