@@ -478,12 +478,12 @@ def compute_conversion_levels(database, desired_levels=None, setup="constant_hea
         raise ValueError(f" * Invalid setup '{setup}'. Must be 'isothermal' or 'constant_heating_rate'.")
 
     # Default conversion levels.
-    if desired_points is None:
-        desired_points = np.linspace(0.05, 0.95, 37)
+    if desired_levels is None:
+        desired_levels = np.linspace(0.05, 0.95, 37)
 
-    # Check if desired_points is monotonic
-    if not np.all(np.diff(desired_points) > 0) or not (0 <= np.min(desired_points) <= np.max(desired_points) <= 1):
-        raise ValueError(" * `desired_points` must be a monotonic array of values between 0 and 1.")
+    # Check if desired_levels is monotonic
+    if not np.all(np.diff(desired_levels) > 0) or not (0 <= np.min(desired_levels) <= np.max(desired_levels) <= 1):
+        raise ValueError(" * `desired_levels` must be a monotonic array of values between 0 and 1.")
 
     # Get all available conditions for the given setup
     available_conditions = database["experiments"]["TGA"].get(setup, {}).keys()
@@ -527,21 +527,21 @@ def compute_conversion_levels(database, desired_levels=None, setup="constant_hea
         temp_avg = conversion_data["Temperature_Avg"]
         alpha_avg = conversion_data["Alpha"]
 
-        # Check if desired points are within range of the provided conversion data
-        if desired_points[0] < np.min(alpha_avg) or desired_points[-1] > np.max(alpha_avg):
+        # Check if desired levels are within range of the provided conversion data
+        if desired_levels[0] < np.min(alpha_avg) or desired_levels[-1] > np.max(alpha_avg):
             raise ValueError(
-                f" * Desired points {desired_points} exceed the range of available alpha values: "
+                f" * Desired levels {desired_levels} exceed the range of available alpha values: "
                 f"   [{np.min(alpha_avg):.3f}, {np.max(alpha_avg):.3f}] for condition '{cond}'.")
 
         # Interpolate data
-        new_time = np.interp(desired_points, alpha_avg, time)
-        new_temp = np.interp(desired_points, alpha_avg, temp_avg)
+        new_time = np.interp(desired_levels, alpha_avg, time)
+        new_temp = np.interp(desired_levels, alpha_avg, temp_avg)
 
         # Store the conversion levels back in the database
         conversion_fractions = pd.DataFrame({
             "Time": new_time,
             "Temperature_Avg": new_temp,
-            "Alpha": desired_points})
+            "Alpha": desired_levels})
         database["experiments"]["TGA"][setup][cond]["conversion_fractions"] = conversion_fractions
 
     # Process each condition
@@ -680,10 +680,10 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
         raise ValueError(f"Unable to store results; parent keys not found: {data_keys[:-1]}")
 
     # Sort the keys of the dataset based on the heating rate values in the nested dictionary
-    set_value_keys = sorted(dataset.keys(), key=lambda x: dataset[x]["set_value"]["Value"])
+    set_value_keys = sorted(dataset.keys(), key=lambda x: dataset[x]["set_value"]["value"])
 
     # Sort the set values themselves
-    set_values = sorted(dataset[key]["set_value"]["Value"] for key in dataset.keys())
+    set_values = sorted(dataset[key]["set_value"]["value"] for key in dataset.keys())
 
     # Get number of conversion levels
     conversion_levels = dataset[set_value_keys[0]]["conversion_fractions"]["Alpha"]

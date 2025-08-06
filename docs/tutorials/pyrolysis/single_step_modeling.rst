@@ -54,6 +54,8 @@ In this introduction, the conversion of a single-step pyrolysis reaction is mode
 .. code-block:: python
 
     # Import necessary packages
+    import numpy as np
+    
     import matplotlib.pyplot as plt
     import firescipy as fsp
 
@@ -99,14 +101,19 @@ See also: :func:`fsp.pyrolysis.modeling.create_linear_temp_program`, :func:`fsp.
 .. code-block:: python
 
     # Get time-temperature data series
-    t_array = temp_program["Time"]
-    T_array = temp_program["Temperature"]
+    time_model = temp_program["Time"]
+    temp_model = temp_program["Temperature"]
 
     # Compute conversion
     t_sol, alpha_sol = fsp.pyrolysis.modeling.solve_kinetics(
-       t_array, T_array, alpha0, A, E,
-       reaction_model='nth_order',
-       model_params={'n': 1.0})
+        t_array=time_model,
+        T_array=temp_model,
+        A=A,
+        E=E,
+        alpha0=alpha0,
+        R=fsp.constants.GAS_CONSTANT,
+        reaction_model='nth_order',
+        model_params={'n': 1.0})
 
 
 Let's plot the conversion against the sample temperature to see the result. The code below will produce a plot showing the conversion as a function of temperature. Users are encouraged to run the example locally to see the result.
