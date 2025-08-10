@@ -1,5 +1,5 @@
-Example Processing of Data from TGA Experiments
-===============================================
+3. Data Processing Example of TGA Experiments
+=============================================
 
 In this example, the conversion data is derived from experimental thermogravimetric analysis (TGA) data.
 
@@ -199,9 +199,9 @@ Below the result is plotted: the apparent activation energy against the conversi
 
 The :math:`E_a` is computed in J/mol and converted here to kJ/mol, as it is a common way to use it.
 
-Below, the apparent activation energy $E_a$ is plotted against the conversion :math:`\alpha`.
+Below, the apparent activation energy :math:`E_a` is plotted against the conversion :math:`\alpha`.
 
-The KAS method estimates $E_a$ in units of J/mol, but it is commonly reported in kJ/mol — so the values are converted accordingly before plotting.
+The KAS method estimates :math:`E_a` in units of J/mol, but it is commonly reported in kJ/mol — so the values are converted accordingly before plotting.
 
 The shaded gray regions indicate the first and last :math:`5 %` of the conversion range. These are typically excluded from analysis due to higher sensitivity to noise and lower data reliability. In the first :math:`5 %`, artifacts are visible due to increased noise.
 
@@ -361,11 +361,222 @@ The curves are aligned such that the final mass approaches zero, which is common
     plt.grid()
 
 
-    # Save image.
-    plot_label = f"NormalisedMLR.png"
-    plot_path = os.path.join(plot_label)
-    plt.savefig(plot_path, dpi=320, bbox_inches='tight', facecolor='w')
+    # # Save image.
+    # plot_label = f"NormalisedMLR.png"
+    # plot_path = os.path.join(plot_label)
+    # plt.savefig(plot_path, dpi=320, bbox_inches='tight', facecolor='w')
 
+
+Sensitivity of :math:`E_a` Estimation to the Number and Range of Heating Rates
+------------------------------------------------------------------------------
+
+When estimating the apparent activation energy :math:`E_a`, one common question is:
+
+**"Why are so many heating rates necessary? Can’t we just use three?"**
+
+The answer to this question boils down to the fact that the isoconversional methods are fundamentally built on linear regression. For each chosen conversion level, the KAS method fits a straight line to :math:`ln⁡(\beta/T^B)` vs. :math:`1/T`. The slope of this line is used to determine the apparent activation energy :math:`E_a`.
+
+According to the `ICTAC Kinetics Committee recommendations (https://doi.org/10.1016/j.tca.2014.05.036) <https://doi.org/10.1016/j.tca.2014.05.036>`_, at the very least three, better are **five or more**, temperature programs should be used. These should span as wide a range as possible. Consider linear heating rates. ICTAC suggests to use a spread of a **factor of 10 or more** between the lowest and highest rate (e.g. 5 K/min to 50 K/min) to ensure robust estimation of :math:`E_a`. This ensures:
+
+- A wide spread in :math:`1/T` values, which increases statistical leverage in the fit.
+- Enough data points to reduce sensitivity to noise and improve the robustness of the slope estimate.
+
+If the heating rates are too close together or too few in number, the :math:`1/T` values cluster. This reduces the fit’s ability to capture the underlying trend, making the slope — and thus :math:`E_a` — more sensitive to experimental noise and measurement uncertainty.
+
+
+.. code-block:: python
+
+    # Initialise data structure for the kinetics assessment
+    PMMA_data_1mg_low = fsp.pyrolysis.kinetics.initialize_investigation_skeleton(
+        material=f"PMMA",
+        investigator="John Doe, Miskatonic University",
+        instrument="TGA/DSC 3+, Mettler Toledo",
+        date="Stardate: 42.69",
+        notes="Constant heating rates, sample mass 1mg",
+        signal={"name": "Mass", "unit": "mg"})
+
+
+    # heating rates: 5, 10 K/min
+    file_names = [
+        "tga_dynamic_n2_dyn5_powder_1mg_r1.txt",
+        "tga_dynamic_n2_dyn5_powder_1mg_r2.txt",
+        "tga_dynamic_n2_dyn5_powder_1mg_r3.txt",
+        "tga_dynamic_n2_dyn10_powder_1mg_r1.txt",
+        "tga_dynamic_n2_dyn10_powder_1mg_r2.txt",
+        "tga_dynamic_n2_dyn10_powder_1mg_r3.txt"
+    ]
+
+
+    for file_name in file_names:
+        if "powder_1mg_" in file_name:
+            # print(file_name)
+
+            # Parse metadata from file name: heating rate and repetition
+            name_parts = file_name.split("_")
+            hr_value = int(name_parts[3][3:])  # e.g., extracts 10 from 'dyn10'
+            hr_label = f"{hr_value}_Kmin"
+            print(hr_label)
+            rep_label = f"Rep_{name_parts[-1][1]}"  # e.g., 'Rep_1' from '..._r1.txt'
+
+            # Read CSV file as Pandas DataFrame
+            exp_path = os.path.join(exp_root, file_name)
+            exp_df = pd.read_csv(exp_path, header=0, skiprows=[1],
+                                 delimiter=('\t'), encoding="cp858")
+
+            # Adjust temperature to Kelvin
+            exp_df["ts"] = exp_df["ts"] + 273.15
+            exp_df["tr"] = exp_df["tr"] + 273.15
+
+            # Add DataFrame to database
+            fsp.pyrolysis.kinetics.add_constant_heating_rate_tga(
+                database=PMMA_data_1mg_low,
+                condition=hr_label,
+                repetition=rep_label,
+                raw_data=exp_df,
+                data_type="integral",
+                set_value=[hr_value, "K/min"])
+
+
+    # Adjust column mapping for later functions
+    column_mapping = {
+            'time': 't',
+            'temp': 'ts',
+            'signal': 'weight'}
+    for hr_label in PMMA_data_1mg_low["experiments"]["TGA"]["constant_heating_rate"]:
+        # Compute averages and standard deviations per heating rate
+        fsp.pyrolysis.kinetics.combine_repetitions(
+            database=PMMA_data_1mg_low,
+            condition=hr_label,
+            temp_program="constant_heating_rate",
+            column_mapping=column_mapping)
+
+
+    fsp.pyrolysis.kinetics.compute_conversion(
+        database=PMMA_data_1mg_low,
+        condition="all",
+        setup="constant_heating_rate")
+
+
+    # Define conversion fractions where to evaluate the activation energy
+    # Note: commonly, they range between (0.05 < α < 0.95) or (0.1 < α < 0.9)
+    # conversion_levels = np.linspace(0.05, 0.95, 37)  # Δα = 2.5
+    conversion_levels = np.linspace(0.01, 0.99, 99)  # Δα = 1.0
+
+    fsp.pyrolysis.kinetics.compute_conversion_levels(
+        database=PMMA_data_1mg_low,
+        desired_levels=conversion_levels,
+        setup="constant_heating_rate",
+        condition="all")
+
+
+    # Compute the activation energy using the KAS method
+    fsp.pyrolysis.kinetics.compute_Ea_KAS(
+        database=PMMA_data_1mg_low,
+        B=1.92,
+        C=1.0008)
+
+
+After computing the :math:`E_a` for the reduced data set, a plot is created to compare the results with the full data set.
+
+
+.. code-block:: python
+
+    # Pre-select data sets for convenience
+    Ea_KAS = PMMA_data_1mg["experiments"]['TGA']["Ea_results_KAS"]
+    Ea_KAS_example = PMMA_data_1mg_low["experiments"]['TGA']["Ea_results_KAS"]
+    hr_labels = ["5_Kmin", "10_Kmin", "20_Kmin", "30_Kmin", "60_Kmin"]
+
+    # Define settings for the plots of the fits
+    marker_size = 42
+    fit_line = ":"
+    fit_alpha = 0.8
+    fit_color = "black"
+
+    # Choose conversion levels for the plot
+    conversion_levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+
+    # Initialise data collection
+    conv_temps = np.zeros((len(conversion_levels), len(hr_labels)))
+    conv_levels = np.zeros((len(conversion_levels), len(hr_labels)))
+
+    for conv_idx, level in enumerate(conversion_levels):
+        level_idx = np.abs(Ea_KAS["Conversion"] - level).argmin()
+        # Get the first three data points to match previous plot
+        conv_temps[conv_idx,:] = np.asarray(Ea_KAS.loc[:,"x1":"x5"].iloc[level_idx])
+        conv_levels[conv_idx,:] = np.asarray(Ea_KAS.loc[:,"y1":"y5"].iloc[level_idx])
+        # Indicate fits
+        m_fit = Ea_KAS["m_fit"].iloc[level_idx]
+        b_fit = Ea_KAS["b_fit"].iloc[level_idx]
+        x_fit = [conv_temps[conv_idx,:][0], conv_temps[conv_idx,:][-1]]
+        y_fit = [fsp.utils.linear_model(x_fit[0], m_fit, b_fit),
+                 fsp.utils.linear_model(x_fit[-1], m_fit, b_fit)]
+
+        if conv_idx == 0:
+            plot_label = "Fit (full)"
+        else:
+            plot_label = "_none_"
+        plt.plot(x_fit, y_fit,
+                 linestyle=fit_line,
+                 alpha=fit_alpha,
+                 color=fit_color,
+                 label=plot_label)
+
+        # Indicate fits, extreme example
+        m_fit = Ea_KAS_example["m_fit"].iloc[level_idx]
+        b_fit = Ea_KAS_example["b_fit"].iloc[level_idx]
+
+        y_fit = [fsp.utils.linear_model(x_fit[0], m_fit, b_fit),
+                 fsp.utils.linear_model(x_fit[-1], m_fit, b_fit)]
+
+        if conv_idx == 0:
+            plot_label = "Fit (5, 10)"
+        else:
+            plot_label = "_none_"
+        plt.plot(x_fit, y_fit,
+                 linestyle=fit_line,
+                 alpha=fit_alpha,
+                 color="tab:red",
+                 label=plot_label)
+
+    # Plot data points by heating rate
+    for idx in range(len(conv_temps.T)):
+        # Get colour for data series, i.e. heating rate
+        plot_colour = plt_colors[idx]
+
+        # Plot data points
+        plt.scatter(
+            conv_temps.T[idx],
+            conv_levels.T[idx],
+            marker='o', s=marker_size,
+            facecolors='none',
+            edgecolors=plot_colour,
+            label=f"{hr_labels[idx].split('_')[0]} K/min")
+
+
+    # Plot meta data.
+    plt.title("Wide Heating Rate Ranges Improve Slope Stability in KAS")
+    plt.xlabel("1/T")
+    plt.ylabel("ln($\\beta$/T$^{1.92}$)")
+
+    plt.xlim(left=0.00141, right=0.00186)
+    plt.ylim(bottom=-11.1, top=-7.9)
+
+    plt.tight_layout()
+    plt.legend()
+    plt.grid()
+
+    # # Save image.
+    # plot_label = f"Ea_Estimate_KAS_Fit_PMMA1mg_example.png"
+    # plot_path = os.path.join(plot_label)
+    # plt.savefig(plot_path, dpi=320, bbox_inches='tight', facecolor='w')
+
+
+The figure above illustrates this effect for a few conversion levels:
+
+- Black dotted lines: fits using the full dataset (five heating rates from 5 to 60 K/min).
+- Red dotted lines: fits using only the two lowest heating rates (5 and 10 K/min).
+
+With the narrower range, the points lie closer together along the :math:`1/T` axis, and the slope differs noticeably from the full-data case. This illustrates why **both range and redundancy** are critical when designing thermal analysis experiments for kinetic modeling.
 
 For more details, see the
 `FireSciPy documentation <https://yourdocsurl>`_.
