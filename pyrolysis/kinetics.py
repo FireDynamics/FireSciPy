@@ -555,7 +555,9 @@ def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
     Estimates the activation energy for a given level of conversion
     :math:`E_{\\alpha}`. This estimation is based on a
     linear regression based on the isoconversional assumption.
-    By default, the Starink correction is used (B = 1.92, C = 1.0008).
+    By default, the Starink improvement is used, i.e.: B = 1.92, C = 1.0008
+    (https://doi.org/10.1016/S0040-6031(03)00144-8).
+    The baseline KAS parameters would be: B = 2.0, C = 1.0.
 
     The KAS equation is presented below.
 

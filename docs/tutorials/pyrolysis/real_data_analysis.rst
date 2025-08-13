@@ -24,7 +24,7 @@ To apply the KAS method meaningfully, experimental data must be recorded under m
 
 To ensure high-quality experimental data, a few key aspects must be considered:
 
-- **Thermophysical effects of the sample material**: These influence the heat transfer within the sample and can distort the measured reaction rate. Their impact can be minimized by reducing the sample mass and repeating experiments with decreasing amounts until the results (e.g., mass loss rate curves) can be superimposed. This is especially important in micro-scale TGA experiments.
+- **Thermophysical effects of the sample material**: These influence the heat transfer within the sample and can distort the measured reaction rate. Their impact can be minimized by reducing the sample mass and repeating experiments with decreasing amounts (mass down-scaling series) until the results (e.g., mass loss rate curves) can be superimposed. This is especially important in micro-scale TGA experiments.
 
 - **Secondary reactions involving evolved gases**: In some materials, volatile products may react with the remaining solid. This effect can be mitigated by increasing the purge gas flow rate to carry away evolved gases more effectively. Again, comparing mass loss rate curves for different flow rates can help confirm when the flow is sufficient (i.e., when the curves overlap).
 
@@ -36,10 +36,10 @@ In general, **apparent kinetic parameters should not be estimated from a single 
 
 More detailed guidance is available from the recommendations provided by the International Confederation for Thermal Analysis and Calorimetry (ICTAC) Kinetics Committee:
 
-- `ICTAC Kinetics Committee recommendations for performing kinetic computations on thermal analysis data <https://doi.org/10.1016/j.tca.2011.03.034>`_
-- `ICTAC Kinetics Committee recommendations for collecting experimental thermal analysis data for kinetic computations <https://doi.org/10.1016/j.tca.2014.05.036>`_
-- `ICTAC Kinetics Committee recommendations for analysis of multi-step kinetics <https://doi.org/10.1016/j.tca.2020.178597>`_
-- `ICTAC Kinetics Committee recommendations for analysis of thermal decomposition kinetics <https://doi.org/10.1016/j.tca.2022.179384>`_
+- `ICTAC Kinetics Committee recommendations for performing kinetic computations on thermal analysis data, 2011 (https://doi.org/10.1016/j.tca.2011.03.034) <https://doi.org/10.1016/j.tca.2011.03.034>`_
+- `ICTAC Kinetics Committee recommendations for collecting experimental thermal analysis data for kinetic computations, 2014 (https://doi.org/10.1016/j.tca.2014.05.036) <https://doi.org/10.1016/j.tca.2014.05.036>`_
+- `ICTAC Kinetics Committee recommendations for analysis of multi-step kinetics, 2020 (https://doi.org/10.1016/j.tca.2020.178597) <https://doi.org/10.1016/j.tca.2020.178597>`_
+- `ICTAC Kinetics Committee recommendations for analysis of thermal decomposition kinetics, 2023 (https://doi.org/10.1016/j.tca.2022.179384) <https://doi.org/10.1016/j.tca.2022.179384>`_
 
 
 
@@ -50,7 +50,7 @@ In this example, the apparent activation energy :math:`E_a` is estimated using t
 
 Other datasets from the same study — including those with different sample masses and complementary microscale calorimeter data — are available at:
 
-- [Thermogravimetric And Microscale Calorimeter Data on Cast PMMA (https://doi.org/10.24355/dbbs.084-202504170956-0)](https://doi.org/10.24355/dbbs.084-202504170956-0)
+- `Thermogravimetric And Microscale Calorimeter Data on Cast PMMA (https://doi.org/10.24355/dbbs.084-202504170956-0) <https://doi.org/10.24355/dbbs.084-202504170956-0>`_
 
 
 At first, the necessary modules are imported.
@@ -195,7 +195,7 @@ This step concludes the KAS-based estimation of the apparent activation energy.
         C=1.0008)
 
 
-Below the result is plotted: the apparent activation energy against the conversion. In gray, the :math:`5 %` range at the ends is indicated.
+Below the result is plotted: the apparent activation energy against the conversion. In gray, the :math:`5 \%` range at the ends is indicated.
 
 The :math:`E_a` is computed in J/mol and converted here to kJ/mol, as it is a common way to use it.
 
@@ -203,7 +203,7 @@ Below, the apparent activation energy :math:`E_a` is plotted against the convers
 
 The KAS method estimates :math:`E_a` in units of J/mol, but it is commonly reported in kJ/mol — so the values are converted accordingly before plotting.
 
-The shaded gray regions indicate the first and last :math:`5 %` of the conversion range. These are typically excluded from analysis due to higher sensitivity to noise and lower data reliability. In the first :math:`5 %`, artifacts are visible due to increased noise.
+The shaded gray regions indicate the first and last :math:`5 \%` of the conversion range. These are typically excluded from analysis due to higher sensitivity to noise and lower data reliability. In the first :math:`5 \%`, artifacts are visible due to increased noise.
 
 
 .. code-block:: python
@@ -257,7 +257,7 @@ FireSciPy also evaluates the quality of each linear fit used in the KAS computat
 - An **RMSE** of 0 indicates a perfect fit.
 - An **R²** of 1 means that the fit perfectly explains the variance in the data.
 
-In the plot below, fluctuations are more pronounced at low levels of conversion. This further supports the common practice of excluding the edges of the conversion range (typically the first and last :math:`5 %`) in isoconversional analyses.
+In the plot below, fluctuations are more pronounced at low levels of conversion. This further supports the common practice of excluding the edges of the conversion range (typically the first and last :math:`5 \%`) in isoconversional analyses.
 
 
 .. code-block:: python
