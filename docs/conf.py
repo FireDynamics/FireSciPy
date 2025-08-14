@@ -1,6 +1,6 @@
 import os
 import sys
-fsp_path = os.path.join("..", "..")
+fsp_path = os.path.join("..", "src")
 sys.path.insert(0, os.path.abspath(fsp_path))  # So FireSciPy is importable
 
 project = "FireSciPy"
