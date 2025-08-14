@@ -1,7 +1,7 @@
 Utils Module
 ============
 
-.. automodule:: FireSciPy.utils
+.. automodule:: firescipy.utils
    :members:
    :undoc-members:
    :show-inheritance:

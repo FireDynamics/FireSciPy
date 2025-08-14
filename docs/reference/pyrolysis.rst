@@ -6,7 +6,7 @@ This subpackage contains tools for modeling pyrolysis behavior and computing kin
 Kinetics Module
 ---------------
 
-.. automodule:: FireSciPy.pyrolysis.kinetics
+.. automodule:: firescipy.pyrolysis.kinetics
    :members:
    :undoc-members:
    :show-inheritance:
@@ -15,7 +15,7 @@ Kinetics Module
 Modeling Module
 ---------------
 
-.. automodule:: FireSciPy.pyrolysis.modeling
+.. automodule:: firescipy.pyrolysis.modeling
    :members:
    :undoc-members:
    :show-inheritance:
