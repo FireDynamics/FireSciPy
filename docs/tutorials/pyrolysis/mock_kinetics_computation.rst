@@ -224,7 +224,7 @@ Looping over the above dictionary, a temperature program is created for each nom
 
 Next, the desired conversion fractions need to be specified. They are necessary to ensure that the linear fit of the KAS method compares appropriate temperatures for a given level of conversion. During the experiments the data is recorded with a frequency that can be adjusted at the device. The changes that individual data points match up across many heating rates and for all desired conversion levels is very slim. Thus, interpolation of the input data is necessary. This interpolation is conducted with :func:`fsp.pyrolysis.kinetics.compute_conversion_fractions`. As parameters, the data structure, the desired points for the analysis and the setup need to be provided. There is also an option to compute the fractions for selected temperature programs or all that are available.
 
-Commonly, the conversion fractions range between :math:`(0.05 < \alpha < 0.95)` or :math:`(0.1 < \alpha < 0.9)`. The reason being, that at the ends changes in are small over long times and the experimental noise is large. This leads to spurious results. However, the ends should not be rejected flat out. The user needs to assess how significant fluctuations are to not neglect, for example, initial reactions. In this example, a wider range is chosen: :math:`(0.01 < \alpha < 0.99)`. Since the input data comes from modelling, the noise is low for the provided settings. It will be highlighted below that noise increases towards the end.
+Commonly, the conversion fractions range between :math:`(0.05 < \alpha < 0.95)` or :math:`(0.1 < \alpha < 0.9)`. The reason being, that at the ends changes in conversion are small over long times and the experimental noise is comparatively large. This leads to spurious results. However, the ends should not be rejected flat out. The user needs to assess how significant fluctuations are to not neglect, for example, initial reactions. In this example, a wider range is chosen: :math:`(0.01 < \alpha < 0.99)`. Since the input data comes from modelling, the noise is low for the provided settings. It will be highlighted below that noise increases towards the end.
 
 
 .. code-block:: python
@@ -256,7 +256,7 @@ By default, the KAS method implemented in FireSciPy uses the Starink improvement
     fsp.pyrolysis.kinetics.compute_Ea_KAS(data_structure, B=1.92, C=1.0008)
 
 
-Finally, the results can be plotted: the development of the activation energy over the conversion. In gray, the first and last :math:`5%` of the conversion are highlighted. Even using model data as input, it is observable that the noise increases towards the ends. Feel free to play with different sampling rates to see how they affect the result.
+Finally, the results can be plotted: the development of the activation energy over the conversion. In gray, the first and last :math:`5\%` of the conversion are highlighted. Even using model data as input, it is observable that the noise increases towards the ends. Feel free to play with different sampling rates to see how they affect the result.
 
 
 .. code-block:: python

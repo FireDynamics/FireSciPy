@@ -18,5 +18,5 @@ extensions = [
 templates_path = ["_templates"]
 exclude_patterns = []
 
-html_theme = "alabaster"  # You can switch to 'sphinx_rtd_theme' or others later
+html_theme = "classic"  # You can switch to 'sphinx_rtd_theme' or others later
 html_static_path = ["_static"]
