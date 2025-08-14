@@ -3,7 +3,7 @@ import pandas as pd
 
 from scipy.integrate import solve_ivp
 
-from FireSciPy.constants import GAS_CONSTANT
+from firescipy.constants import GAS_CONSTANT
 
 
 def create_linear_temp_program(start_temp=300, end_temp=700, beta=10.0, beta_unit="K/min", steps=400):
