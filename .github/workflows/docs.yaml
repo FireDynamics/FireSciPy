@@ -1,0 +1,80 @@
+name: Build & Deploy Sphinx docs
+
+on:
+  push:
+    branches: [ main ]           # change if your default branch is different
+  pull_request:
+    branches: [ main ]           # build on PRs (no deploy)
+  workflow_dispatch:              # manual run
+
+# Avoid overlapping deployments
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"  # pick the version you prefer
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('docs/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install docs dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r docs/requirements.txt
+
+      # If your docs use autodoc (import your package), install it too:
+      - name: Install package (editable)
+        run: pip install -e .
+
+      # Optional: set html_baseurl at build time (nice for canonical links)
+      # Replace URL if you want to hardcode; otherwise you can delete -D line.
+      - name: Build Sphinx HTML
+        run: |
+          sphinx-build \
+            -b html \
+            -D html_baseurl="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" \
+            docs docs/_build/html
+
+      # Optional: include CNAME if you use a custom domain. Create docs/CNAME.
+      - name: Add CNAME (if present)
+        run: |
+          if [ -f docs/CNAME ]; then
+            cp docs/CNAME docs/_build/html/CNAME
+          fi
+
+      - name: Upload artifact (site)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  # Deploy only on pushes (not PRs)
+  deploy:
+    if: ${{ github.event_name == 'push' }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

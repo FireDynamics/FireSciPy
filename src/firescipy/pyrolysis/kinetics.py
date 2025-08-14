@@ -6,8 +6,8 @@ import pandas as pd
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit, minimize
 from typing import List, Dict, Union  # for type hints in functions
-from FireSciPy.utils import series_to_numpy, ensure_nested_dict, get_nested_value, linear_model, calculate_residuals, calculate_R_squared, calculate_RMSE
-from FireSciPy.constants import GAS_CONSTANT
+from firescipy.utils import series_to_numpy, ensure_nested_dict, get_nested_value, linear_model, calculate_residuals, calculate_R_squared, calculate_RMSE
+from firescipy.constants import GAS_CONSTANT
 
 
 def initialize_investigation_skeleton(material, investigator=None, instrument=None, date=None, notes=None, signal=None):

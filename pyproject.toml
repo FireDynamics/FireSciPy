@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "firescipy"
+version = "0.1.0"
+description = "FireSciPy: Fundamental algorithms from the field of fire science, for computations with Python."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "CC-BY-4.0" } # adjust if you use another license
+authors = [
+  { name = "Tristan Hehnen", email = "you@example.com" },
+  { name = "Lukas Arnold", email = "you@example.com" }
+]
+dependencies = [
+    "numpy>=1.19.5",
+    "scipy>=1.5.4",
+    "pandas>=1.1.5",
+    "matplotlib>=3.3.4",
+    # Add other runtime dependencies here
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["firescipy*"]

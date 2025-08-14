@@ -6,7 +6,7 @@ This subpackage contains various hand calculations used in fire safety engineeri
 Design Fires Module
 -------------------
 
-.. automodule:: FireSciPy.handcalculation.design_fires
+.. automodule:: firescipy.handcalculation.design_fires
    :members:
    :undoc-members:
    :show-inheritance:
