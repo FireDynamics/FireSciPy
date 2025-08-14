@@ -1,7 +1,7 @@
-FireScyPy Tutorials
+FireSciPy Tutorials
 ===================
 
-This section contains hands-on tutorials to help you get started with FireScyPy.
+This section contains hands-on tutorials to help you get started with FireSciPy.
 
 Pyrolysis Reaction Kinetics
 ---------------------------

@@ -3,7 +3,7 @@ import sys
 fsp_path = os.path.join("..", "src")
 sys.path.insert(0, os.path.abspath(fsp_path))  # So firescipy is importable
 
-project = "firescipy"
+project = "FireSciPy"
 author = "Tristan Hehnen, Lukas Arnold"
 release = "0.1.0"
 
