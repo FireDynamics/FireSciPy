@@ -19,7 +19,7 @@ Distributed under the CC-BY-4.0 license (Creative Commons Attribution 4.0 Intern
 
 Contributions to this package are welcome!
 
-Please feel free to use the [doscussions forum](https://github.com/FireDynamics/FireSciPy/discussions) or the [issue tracker](https://github.com/FireDynamics/FireSciPy/issues) to get in contact with us. From there, we can talk about your ideas and see how to implement them.
+Please feel free to use the [discussions forum](https://github.com/FireDynamics/FireSciPy/discussions) or the [issue tracker](https://github.com/FireDynamics/FireSciPy/issues) to get in contact with us. From there, we can talk about your ideas and see how to implement them.
 
 Practical summary for contributions directly to the repo:
 
