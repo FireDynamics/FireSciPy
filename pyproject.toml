@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "firescipy"
-version = "0.0.4"
+version = "0.0.5"
 description = "FireSciPy: Fundamental algorithms from the field of fire science, for computations with Python."
 readme = "README.md"
 keywords = ["Fire Safety Engineering", "fire", "pyrolysis", "kinetics", "FDS"]
@@ -22,10 +22,10 @@ classifiers = [
   "Topic :: Scientific/Engineering"
 ]
 dependencies = [
-    "numpy>=1.19.5",
-    "scipy>=1.5.4",
-    "pandas>=1.1.5",
-    "matplotlib>=3.3.4",
+    "numpy>=1.21",
+    "scipy>=1.7",
+    "pandas>=1.3",
+    "matplotlib>=3.4",
     # Add other runtime dependencies here
 ]
 
