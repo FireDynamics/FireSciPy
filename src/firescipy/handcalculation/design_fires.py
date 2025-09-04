@@ -214,3 +214,205 @@ def simple_design_fire(Q_max, Q_total, decay_model="t_squared", **kwargs):
     Q_combined = np.concatenate((Q_growth, np.full(2, Q_max), Q_decay))
 
     return t_combined, Q_combined
+def ignition(model,**kwargs):
+    """
+    Returnes pre defined fire curves that are usually used as ignition sources.
+
+    Parameters
+    ----------
+    model : str
+        Name of the ignition source model.
+            - EN45545-1: Ignition model 5 from EN 45545-1
+            - TRStrab: Ignition model from TRStrab BS
+            - E-Bike: Values from https://www.youtube.com/watch?v=2vir4_1qSSc
+            
+    Optional keyword arguments (`**kwargs`) depending on the selected model:
+    sampling_rate : float
+        Sampling rate in Hz. Default is 1 Hz.
+
+    Returns
+    -------
+    time : np.ndarray
+        time array in seconds
+    hrr : np.ndarray
+        corresponding heat release rate array in kW.
+    """
+    sampling_rate=kwargs.get("sampling_rate", 1)
+    ignitioncurves={'EN45545-1':   np.array((np.array((0,2,2,10,10))*60,np.array((75,75,150,150,0)))),
+                         'TRStrab BS':   np.array(([0,300,480,1800],[0,120,150,0])),
+                         'E-Bike':    np.array(([0,12,45,84,900],[0,55,900,80,0]))}
+    values=ignitioncurves[model]
+    time=np.linspace(0,values[0].max(),values[0].max()*sampling_rate+1)
+    hrr=np.interp(time,values[0],values[1])
+    return time,hrr
+
+def din5647(length=20,**kwargs):
+    """
+    Returnes parametrized version of the design fire for trams from DIN 5647/TRStrab BS with six different
+    design fire phases.
+
+    Parameters
+    ----------
+    length : int
+        Length of tram in meter. Original model designed for lengths of  
+            - EN45545-1: Ignition model 5 from EN 45545-1
+            - TRStrab: Ignition model from TRStrab BS
+            - E-Bike: Values from https://www.youtube.com/watch?v=2vir4_1qSSc
+            
+    Optional keyword arguments (`**kwargs`) depending on the selected model:
+    alpha: [float,float]
+        alpha1 for design fire phase  (alpha³ model) in kW/s^3 and alpha2 for design fire phase 2 (alpha² model) in kW/s^2
+    sampling_rate : float
+        Sampling rate in Hz. Default is 1 Hz.
+
+    Returns
+    -------
+    time : np.ndarray
+        time array in seconds
+    hrr : np.ndarray
+        corresponding heat release rate array in kW.
+    """
+    sampling_rate=kwargs.get("sampling_rate", 1)
+    alpha1,alpha2=kwargs.get("alpha", [5.2E-5,0.025])
+    x=np.arange(0,4200)
+    q=np.full(4200,np.nan)
+    q1=x[0:421]**3*alpha1
+    q[0:421]=q1
+    q2=(x[421:901]-360)**2*alpha2+q1[-1]
+    q[421:901]=q2
+    qap=q2[-1]
+    i=900
+    q3=np.array(((q2[-1]),))
+    q3max=q3[(i-901)]
+    while round(q3max)<1387*length:
+        i+=60
+        q3=np.append(q3,np.array(((q3[-1]+252*np.exp(0.004*i-1.68)),)),axis=0)
+        q3max=q3[-1]
+    i+=61
+    q[901:i]=np.interp(x[901:i],x[901:i:60],q3)
+    i=np.where(q>1387*length)[0][0]+300
+    q4=np.full(300,1387*length)
+    q[i-300:i]=q4
+    j=i
+    q5=np.array(((q4[-1]),))
+    q5min=q5[-1]
+    while round(q5min)>0.78*length*1387:
+        i+=60
+        q5=np.append(q5,np.array(((0.94*q5[-1]),)),axis=0)
+        q5min=q5[-1]
+    #i=i-60
+    q[j:i]=np.interp(x[j:i],x[j:i+1:60],q5)
+    i=np.where(q[j:]<0.78*length*1387)[0][0]+j
+    j=i
+    q6=np.array((q[i],))
+    i+=60
+    while i<=4200:
+        q6=np.append(q6,np.array(((0.9*q6[-1]),)),axis=0)
+        i+=60
+    q[j:i]=np.interp(x[j:i],x[j:i+1:60],q6)
+    values=np.array((x,q))
+    time=np.linspace(0,values[0].max(),values[0].max()*sampling_rate+1)
+    hrr=np.interp(time,values[0],values[1])
+    return time,hrr    
+
+def ignition(model,**kwargs):
+    """
+    Returnes pre defined fire curves that are usually used as ignition sources.
+
+    Parameters
+    ----------
+    model : str
+        Name of the ignition source model.
+            - EN45545-1: Ignition model 5 from EN 45545-1
+            - TRStrab: Ignition model from TRStrab BS
+            - E-Bike: Values from https://www.youtube.com/watch?v=2vir4_1qSSc
+            
+    Optional keyword arguments (`**kwargs`) depending on the selected model:
+    sampling_rate : float
+        Sampling rate in Hz. Default is 1 Hz.
+
+    Returns
+    -------
+    time : np.ndarray
+        time array in seconds
+    hrr : np.ndarray
+        corresponding heat release rate array in kW.
+    """
+    sampling_rate=kwargs.get("sampling_rate", 1)
+    ignitioncurves={'EN45545-1':   np.array((np.array((0,2,2,10,10))*60,np.array((75,75,150,150,0)))),
+                         'TRStrab BS':   np.array(([0,300,480,1800],[0,120,150,0])),
+                         'E-Bike':    np.array(([0,12,45,84,900],[0,55,900,80,0]))}
+    values=ignitioncurves[model]
+    time=np.linspace(0,values[0].max(),values[0].max()*sampling_rate+1)
+    hrr=np.interp(time,values[0],values[1])
+    return time,hrr
+
+def din5647(length=20,**kwargs):
+    """
+    Returnes parametrized version of the design fire for trams from DIN 5647/TRStrab BS with six different
+    design fire phases.
+
+    Parameters
+    ----------
+    length : int
+        Length of tram in meter. Original model designed for lengths of  
+            - EN45545-1: Ignition model 5 from EN 45545-1
+            - TRStrab: Ignition model from TRStrab BS
+            - E-Bike: Values from https://www.youtube.com/watch?v=2vir4_1qSSc
+            
+    Optional keyword arguments (`**kwargs`) depending on the selected model:
+    alpha: [float,float]
+        alpha1 for design fire phase  (alpha³ model) in kW/s^3 and alpha2 for design fire phase 2 (alpha² model) in kW/s^2
+    sampling_rate : float
+        Sampling rate in Hz. Default is 1 Hz.
+
+    Returns
+    -------
+    time : np.ndarray
+        time array in seconds
+    hrr : np.ndarray
+        corresponding heat release rate array in kW.
+    """
+    sampling_rate=kwargs.get("sampling_rate", 1)
+    alpha1,alpha2=kwargs.get("alpha", [5.2E-5,0.025])
+    x=np.arange(0,4200)
+    q=np.full(4200,np.nan)
+    q1=x[0:421]**3*alpha1
+    q[0:421]=q1
+    q2=(x[421:901]-360)**2*alpha2+q1[-1]
+    q[421:901]=q2
+    qap=q2[-1]
+    i=900
+    q3=np.array(((q2[-1]),))
+    q3max=q3[(i-901)]
+    while round(q3max)<1387*length:
+        i+=60
+        q3=np.append(q3,np.array(((q3[-1]+252*np.exp(0.004*i-1.68)),)),axis=0)
+        q3max=q3[-1]
+    i+=61
+    q[901:i]=np.interp(x[901:i],x[901:i:60],q3)
+    i=np.where(q>1387*length)[0][0]+300
+    q4=np.full(300,1387*length)
+    q[i-300:i]=q4
+    j=i
+    q5=np.array(((q4[-1]),))
+    q5min=q5[-1]
+    while round(q5min)>0.78*length*1387:
+        i+=60
+        q5=np.append(q5,np.array(((0.94*q5[-1]),)),axis=0)
+        q5min=q5[-1]
+    #i=i-60
+    q[j:i]=np.interp(x[j:i],x[j:i+1:60],q5)
+    i=np.where(q[j:]<0.78*length*1387)[0][0]+j
+    j=i
+    q6=np.array((q[i],))
+    i+=60
+    while i<=4200:
+        q6=np.append(q6,np.array(((0.9*q6[-1]),)),axis=0)
+        i+=60
+    q[j:i]=np.interp(x[j:i],x[j:i+1:60],q6)
+    values=np.array((x,q))
+    time=np.linspace(0,int(values[0].max()),int(values[0].max())*sampling_rate+1)
+    hrr=np.interp(time,values[0],values[1])
+    return time,hrr    
+
