@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import numpy as np
 import pandas as pd
 
@@ -252,3 +256,72 @@ def gaussian(x, mu, sigma, a=1.0):
     normalisation = a / (sigma * np.sqrt(2 * np.pi))
     f_x =  normalisation * np.exp(exponent)
     return f_x
+
+
+def dynamic_local_change_simplification(time, temperature, basis_tolerance=0.2):
+    """
+    Simplify a time-temperature dataset by dynamically assessing local changes
+    against a "basis" change.
+
+    This function allows to remove data points from a series but preserves the
+    shape. This is helpful when defining a RAMP for FDS. For example, when a
+    simulation is to be conducted where the temperature development of a heater
+    over time is to be used as input, e.g. TGA, or cone calorimeter.
+    It works as follows:
+
+    The first point is retained. Then, the change between the first and second
+    data point is established (basis change). A range is defined around the
+    basis change, using the `basis_tolerance`. Next, it is determined if the
+    change between the first and third point is inside that range. If this is
+    true, the point is excluded and the change between first and fourth point
+    is assessed. This process is repeated until a point is outside the range.
+    This point is retained and the process starts again. The last point in the
+    series is always retained.
+
+
+    Parameters
+    ----------
+    time : ndarray
+        Time values.
+    temperature : ndarray
+        Temperature values.
+    basis_tolerance : float
+        Tolerance range for deviations from the basis change (e.g., 0.2 = 20%).
+
+    Returns
+    -------
+    ndarray
+        Indices of the retained points in the original data.
+    """
+
+    # Always keep the first point
+    retained_indices = [0]
+
+    # Establish the basis change (change between the first two points)
+    start_idx = 0
+    basis_change = abs(temperature[1] - temperature[0])
+
+    for i in range(1, len(temperature)):
+        # Calculate the cumulative change since the current start point
+        cumulative_change = abs(temperature[i] - temperature[start_idx])
+
+        # Calculate the allowed range around the basis change
+        lower_bound = basis_change * (1 - basis_tolerance)
+        upper_bound = basis_change * (1 + basis_tolerance)
+
+        # If the cumulative change exceeds the allowed range
+        if cumulative_change < lower_bound or cumulative_change > upper_bound:
+            # Keep the current point
+            retained_indices.append(i)
+
+            # Reset the start point and basis change
+            start_idx = i
+            if i + 1 < len(temperature):  # Check to avoid index errors
+                basis_change = abs(temperature[i + 1] - temperature[i])
+            else:
+                basis_change = cumulative_change  # Final segment uses the last change
+
+    # Always keep the last point
+    retained_indices.append(len(temperature) - 1)
+
+    return np.array(retained_indices)
