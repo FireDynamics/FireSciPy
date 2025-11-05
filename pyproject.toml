@@ -10,9 +10,6 @@ readme = "README.md"
 keywords = ["Fire Safety Engineering", "fire", "pyrolysis", "kinetics", "FDS"]
 requires-python = ">=3.9"
 license = { file = "LICEN[CS]E*" }
-classifiers = [
-  "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
-]
 authors = [
   { name = "Tristan Hehnen", email = "you@example.com" },
   { name = "Lukas Arnold", email = "you@example.com" }
@@ -20,6 +17,7 @@ authors = [
 classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent",
+  "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering"
 ]
