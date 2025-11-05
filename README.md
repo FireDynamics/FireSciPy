@@ -10,7 +10,8 @@ Examples are available in Jupyter notebooks in the [FireSciPy repo on GitHub](ht
 
 ## Meta Information
 
-Distributed under the CC-BY-4.0 license (Creative Commons Attribution 4.0 International Public License, https://creativecommons.org/licenses/by/4.0/). See ``LICENSE`` for more information.
+This project is licensed under the Mozilla Public License Version 2.0.
+https://www.mozilla.org/en-US/MPL/2.0/ See ``LICENSE`` for more information.
 
 [https://github.com/FireDynamics/FireSciPy](https://github.com/FireDynamics/FireSciPy)
 
