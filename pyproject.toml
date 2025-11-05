@@ -9,7 +9,7 @@ description = "FireSciPy: Fundamental algorithms from the field of fire science,
 readme = "README.md"
 keywords = ["Fire Safety Engineering", "fire", "pyrolysis", "kinetics", "FDS"]
 requires-python = ">=3.9"
-license = { file = "LICEN[CS]E*" }
+license = { file = "LICENSE" }
 authors = [
   { name = "Tristan Hehnen", email = "you@example.com" },
   { name = "Lukas Arnold", email = "you@example.com" }
