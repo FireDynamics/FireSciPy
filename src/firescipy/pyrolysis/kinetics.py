@@ -8,6 +8,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
+from scipy.integrate import trapezoid, cumulative_trapezoid
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit, minimize
 from typing import List, Dict, Union  # for type hints in functions
@@ -293,28 +294,94 @@ def combine_repetitions(database, condition, temp_program="constant_heating_rate
     return df_combined
 
 
-def differential_conversion(differential_data, m_0=None, m_f=None):
-    # TODO: add differential conversion computation
-    raise ValueError(f" * Still under development.")
-    return
+def differential_conversion(time, differential_data):
+    """
+    Calculate the conversion (alpha) from differential experimental data.
+
+    This function computes the conversion (alpha) for a series of
+    differential experimental data, such as heat flow (DSC) or heat
+    release rate (MCC), by integrating the signal over time and
+    normalizing by the total integrated value.
+
+    For DSC-type data, the idea can be written as:
+
+    .. math::
+
+        \\Delta H(t_i) = \\int_{t_0}^{t_i} \\frac{dH}{dt} \\, dt
+
+        \\Delta H_\\text{tot} = \\int_{t_0}^{t_f} \\frac{dH}{dt} \\, dt
+
+        \\alpha(t_i) = \\frac{\\Delta H(t_i)}{\\Delta H_\\text{tot}}
+
+    where:
+        \\alpha = conversion,
+        H = enthalpy (or another extensive quantity),
+        t_0 = initial time,
+        t_i = instantaneous time,
+        t_f = final time.
+
+    Parameters
+    ----------
+    time : pd.Series or np.ndarray
+        Time series of the experiment in seconds.
+    differential_data : pd.Series or np.ndarray
+        Experimental data representing differential quantities
+        (e.g., heat flow (DSC) or heat release rate (MCC))
+        used to calculate the conversion.
+
+    Returns
+    -------
+    np.ndarray
+        Array of alpha values representing the conversion.
+    """
+
+    # Convert the input data to NumPy arrays for calculations
+    time = series_to_numpy(time)
+    differential_data = series_to_numpy(differential_data)
+
+    # Check if proper data was provided
+    if time.shape != differential_data.shape:
+        raise ValueError(
+            "time and differential_data must have the same shape "
+            f"(got {time.shape} and {differential_data.shape})."
+        )
+
+    # Compute the total H (integral over the full signal)
+    Delta_H_total = trapezoid(differential_data, time)
+
+    # Prevent division by zero
+    if Delta_H_total == 0:
+        raise ValueError("Total integral of differential_data is zero; cannot compute conversion (division by zero).")
+
+    # Compute cumulative H over time (same length as input)
+    Delta_H = cumulative_trapezoid(differential_data, time, initial=0.0)
+
+    # Compute the conversion
+    alpha = Delta_H / Delta_H_total
+
+    return alpha
 
 
 def integral_conversion(integral_data, m_0=None, m_f=None):
     """
     Calculate the conversion (alpha) from integral experimental data.
 
-    This function computes the conversion (alpha) for a series of
-    integral experimental data, such as mass or concentration, based on the
-    formula:
+    This function computes the conversion (alpha) from a series of
+    integral experimental data, such as sample mass (TGA) or concentrations,
+    by normalizing the change in the quantity with respect to its
+    initial and final values.
+
+    For TGA-type data, the idea can be written as:
 
     .. math::
 
-        \\alpha = \\frac{m_0 - m_i}{m_0 - m_f}
+        \\alpha(t_i) = \\frac{m_0 - m_i}{m_0 - m_f}
 
     where:
-        m_0 = initial mass/concentration,
-        m_i = instantaneous mass/concentration,
-        m_f = final mass/concentration.
+        \\alpha = conversion,
+        m_0 = initial mass ,
+        m_i = instantaneous mass at time t_i,
+        m_f = final mass (e.g., char or residue).
 
     If `m_0` and `m_f` are not provided, they default to the first and last
     values of the `integral_data` series, respectively.
@@ -322,13 +389,13 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
     Parameters
     ----------
     integral_data : pd.Series or np.ndarray
-        Experimental data representing integral quantities
-        (e.g., mass or concentration over time) to calculate the conversion.
+        Experimental data representing an integral quantity
+        (typically, mass over time in TGA, or concentration).
     m_0 : float, optional
-        Initial mass/concentration. Defaults to the first
+        Initial value (e.g., initial mass). Defaults to the first
         value of `integral_data`.
     m_f : float, optional
-        Final mass/concentration. Defaults to the last
+        Final value (e.g., residual mass). Defaults to the last
         value of `integral_data`.
 
     Returns
@@ -337,7 +404,7 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
         Array of alpha values representing the conversion.
     """
 
-    # Convert the input data to a numpy array for calculations
+    # Convert the input data to a NumPy array for calculations
     m_i = series_to_numpy(integral_data)
 
     # Use the provided m_0 or default to the first value in the series
