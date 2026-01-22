@@ -366,18 +366,22 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
     """
     Calculate the conversion (alpha) from integral experimental data.
 
-    This function computes the conversion (alpha) for a series of
-    integral experimental data, such as mass or concentration, based on the
-    formula:
+    This function computes the conversion (alpha) from a series of
+    integral experimental data, such as sample mass (TGA) or concentrations,
+    by normalizing the change in the quantity with respect to its
+    initial and final values.
+
+    For TGA-type data, the idea can be written as:
 
     .. math::
 
-        \\alpha = \\frac{m_0 - m_i}{m_0 - m_f}
+        \\alpha(t_i) = \\frac{m_0 - m_i}{m_0 - m_f}
 
     where:
-        m_0 = initial mass/concentration,
-        m_i = instantaneous mass/concentration,
-        m_f = final mass/concentration.
+        \\alpha = conversion,
+        m_0 = initial mass ,
+        m_i = instantaneous mass at time t_i,
+        m_f = final mass (e.g., char or residue).
 
     If `m_0` and `m_f` are not provided, they default to the first and last
     values of the `integral_data` series, respectively.
@@ -385,13 +389,13 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
     Parameters
     ----------
     integral_data : pd.Series or np.ndarray
-        Experimental data representing integral quantities
-        (e.g., mass or concentration over time) to calculate the conversion.
+        Experimental data representing an integral quantity
+        (typically, mass over time in TGA, or concentration).
     m_0 : float, optional
-        Initial mass/concentration. Defaults to the first
+        Initial value (e.g., initial mass). Defaults to the first
         value of `integral_data`.
     m_f : float, optional
-        Final mass/concentration. Defaults to the last
+        Final value (e.g., residual mass). Defaults to the last
         value of `integral_data`.
 
     Returns
@@ -400,7 +404,7 @@ def integral_conversion(integral_data, m_0=None, m_f=None):
         Array of alpha values representing the conversion.
     """
 
-    # Convert the input data to a numpy array for calculations
+    # Convert the input data to a NumPy array for calculations
     m_i = series_to_numpy(integral_data)
 
     # Use the provided m_0 or default to the first value in the series
