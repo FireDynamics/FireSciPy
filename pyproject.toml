@@ -32,6 +32,14 @@ dependencies = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/firescipy"]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [project.urls]
 Repository = "https://github.com/FireDynamics/FireSciPy"
 Documentation = "https://firedynamics.github.io/FireSciPy/"
