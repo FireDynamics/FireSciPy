@@ -495,7 +495,7 @@ def compute_conversion(database, condition="all", setup="constant_heating_rate")
         if data_type == "integral":
             alpha = integral_conversion(mass_avg)  # Optionally pass m_0 and m_f here
         elif data_type == "differential":
-            alpha = differential_conversion(mass_avg)  # Placeholder for differential logic
+            alpha = differential_conversion(time, mass_avg)
 
         # Store the conversion data back in the database
         conversion_data = pd.DataFrame({
@@ -821,6 +821,205 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
 
     # Collect results.
     store_Ea["Ea_results_KAS"] = Ea_results
+
+
+def friedman_Ea(temperature, dalpha_dt):
+    """
+    Friedman differential isoconversional method.
+
+    Estimates the apparent activation energy :math:`E_{\\alpha}` at a given
+    conversion level by performing a linear regression of
+    :math:`\\ln(d\\alpha/dt)` against :math:`1/T`.
+
+    .. math::
+
+        \\ln\\left( \\frac{d\\alpha}{dt}\\bigg|_{\\alpha,i} \\right)
+        = \\ln\\left( A \\cdot f(\\alpha) \\right)
+          - \\frac{E_{\\alpha}}{R\\, T_{\\alpha,i}}
+
+    Reference: Friedman, H. L. (1964). Kinetics of thermal degradation of
+    char‑forming plastics from thermogravimetry. Application to a phenolic
+    plastic. *Journal of Polymer Science Part C: Polymer Symposia*, 6(1),
+    183–195. https://doi.org/10.1002/polc.5070060121
+
+    Parameters
+    ----------
+    temperature : array-like
+        Temperatures in Kelvin at the given conversion level,
+        one value per heating rate.
+    dalpha_dt : array-like
+        Reaction rates :math:`d\\alpha/dt` (1/s) at the given conversion
+        level, one value per heating rate.  All values must be strictly
+        positive.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+
+        - popt (tuple): Slope and intercept of the linear fit.
+        - Ea_i (float): Apparent activation energy in J/mol.
+        - fit_points (tuple): Data points (x, y) used for the linear fit.
+    """
+
+    temperature = series_to_numpy(temperature)
+    dalpha_dt = series_to_numpy(dalpha_dt)
+
+    if len(temperature) != len(dalpha_dt):
+        raise ValueError("temperature and dalpha_dt must have the same length.")
+    if np.any(temperature <= 0):
+        raise ValueError("temperature must be strictly positive (Kelvin).")
+    if np.any(dalpha_dt <= 0):
+        raise ValueError(
+            "dalpha_dt must be strictly positive; "
+            "cannot take the logarithm of non-positive values."
+        )
+
+    data_x = 1 / temperature
+    data_y = np.log(dalpha_dt)
+    fit_points = (data_x, data_y)
+
+    popt, _ = curve_fit(linear_model, data_x, data_y, maxfev=10000)
+    m_fit, _ = popt
+
+    Ea_i = -m_fit * GAS_CONSTANT
+
+    return popt, Ea_i, fit_points
+
+
+def compute_Ea_Friedman(database, data_keys=["experiments", "TGA", "constant_heating_rate"]):
+    """
+    Wrapper function to compute activation energies using the Friedman
+    differential isoconversional method.
+
+    For conditions with ``data_type == "differential"``, the reaction rate
+    :math:`d\\alpha/dt` is read directly from the ``Mass_Avg`` column of the
+    stored conversion data.  For integral data, the rate is estimated
+    numerically via :func:`numpy.gradient`.
+
+    This function requires that :func:`compute_conversion` and
+    :func:`compute_conversion_levels` have been called beforehand.
+
+    Conversion levels where any heating rate yields a non-positive
+    :math:`d\\alpha/dt` are skipped and filled with ``NaN``.
+
+    Parameters
+    ----------
+    database : dict
+        The main data structure storing all experimental data.
+        Must follow the format initialized by
+        :func:`initialize_investigation_skeleton`.
+    data_keys : list
+        Keys that define the path to the relevant dataset inside the
+        database.
+        For example: ``["experiments", "TGA", "constant_heating_rate"]``.
+
+    Returns
+    -------
+    None
+        Adds a DataFrame named ``Ea_results_Friedman`` to the corresponding
+        location in the database.  The DataFrame contains:
+
+        - ``Conversion``: Conversion level α
+        - ``Ea``: Activation energy in J/mol
+        - ``m_fit``: Slope of the linear fit
+        - ``b_fit``: Intercept of the linear fit
+        - ``R_squared``: Coefficient of determination
+        - ``RMSE``: Root mean square error
+        - ``x1`` … ``xN``, ``y1`` … ``yN``: Raw fit data points
+    """
+
+    dataset = get_nested_value(database, data_keys)
+    if dataset is None:
+        raise ValueError(f"Dataset not found at the specified keys: {data_keys}")
+
+    store_Ea = get_nested_value(database, data_keys[:-1])
+    if store_Ea is None:
+        raise ValueError(f"Unable to store results; parent keys not found: {data_keys[:-1]}")
+
+    set_value_keys = sorted(dataset.keys(), key=lambda x: dataset[x]["set_value"]["value"])
+
+    conversion_levels = dataset[set_value_keys[0]]["conversion_fractions"]["Alpha"].values
+
+    # Build interpolated dα/dt and temperature arrays for every condition.
+    dalpha_dt_at_levels = {}
+    temp_at_levels = {}
+
+    for key in set_value_keys:
+        if "conversion" not in dataset[key]:
+            raise KeyError(
+                f" * Conversion data missing for condition '{key}'. "
+                "Run compute_conversion first."
+            )
+
+        conv_data = dataset[key]["conversion"]
+        alpha = conv_data["Alpha"].values
+        temp = conv_data["Temperature_Avg"].values
+        data_type = dataset[key].get("data_type")
+
+        if data_type == "differential":
+            dalpha_dt_raw = conv_data["Mass_Avg"].values
+        else:
+            dalpha_dt_raw = np.gradient(alpha, conv_data["Time"].values)
+
+        dalpha_dt_at_levels[key] = np.interp(conversion_levels, alpha, dalpha_dt_raw)
+        temp_at_levels[key] = np.interp(conversion_levels, alpha, temp)
+
+    Ea = []
+    m = []
+    b = []
+    r_squared = []
+    rmse = []
+
+    xy_data = {f"x{i+1}": [] for i in range(len(set_value_keys))}
+    xy_data.update({f"y{i+1}": [] for i in range(len(set_value_keys))})
+
+    for conv_id, alpha_level in enumerate(conversion_levels):
+        temps = np.array([temp_at_levels[k][conv_id] for k in set_value_keys])
+        rates = np.array([dalpha_dt_at_levels[k][conv_id] for k in set_value_keys])
+
+        if np.any(rates <= 0):
+            warnings.warn(
+                f" * Skipping conversion level α={alpha_level:.3f}: "
+                "non-positive dα/dt encountered."
+            )
+            Ea.append(np.nan)
+            m.append(np.nan)
+            b.append(np.nan)
+            r_squared.append(np.nan)
+            rmse.append(np.nan)
+            for i in range(len(set_value_keys)):
+                xy_data[f"x{i+1}"].append(np.nan)
+                xy_data[f"y{i+1}"].append(np.nan)
+            continue
+
+        popt, Ea_i, fit_points = friedman_Ea(temps, rates)
+        Ea.append(Ea_i)
+
+        m_fit, b_fit = popt
+        m.append(m_fit)
+        b.append(b_fit)
+
+        data_x, data_y = fit_points
+        y_fit = linear_model(data_x, m_fit, b_fit)
+        residuals_i = calculate_residuals(data_y, y_fit)
+        r_squared.append(calculate_R_squared(residuals_i, data_y))
+        rmse.append(calculate_RMSE(residuals_i))
+
+        for i, (x_val, y_val) in enumerate(zip(data_x, data_y)):
+            xy_data[f"x{i+1}"].append(x_val)
+            xy_data[f"y{i+1}"].append(y_val)
+
+    Ea_results = pd.DataFrame({
+        "Conversion": conversion_levels,
+        "Ea": np.array(Ea),
+        "m_fit": np.array(m),
+        "b_fit": np.array(b),
+        "R_squared": np.array(r_squared),
+        "RMSE": np.array(rmse),
+        **xy_data})
+
+    store_Ea["Ea_results_Friedman"] = Ea_results
 
 
 def exp_difference(offset, temp_x1, temp_x2, data_y1, data_y2):
