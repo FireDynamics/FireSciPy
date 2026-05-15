@@ -2,6 +2,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
+import subprocess
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -325,3 +329,329 @@ def dynamic_local_change_simplification(time, temperature, basis_tolerance=0.2):
     retained_indices.append(len(temperature) - 1)
 
     return np.array(retained_indices)
+
+
+def get_git_commit_hash(path_to_git_repo):
+    """
+    Retrieve the short and long commit hashes of the current HEAD in a local Git repository.
+
+    This function runs ``git rev-parse`` in the specified repository directory and
+    returns both the short and full (long) forms of the current HEAD commit hash.
+    Note that uncommitted changes in the working tree are not reflected in these hashes.
+
+    Parameters
+    ----------
+    path_to_git_repo : str or os.PathLike
+        Path to the local clone of a Git repository.
+
+    Returns
+    -------
+    rev_short : str
+        Short form of the current HEAD commit hash (e.g., ``a1b2c3d``).
+    rev_long : str
+        Full (long) form of the current HEAD commit hash (e.g., ``a1b2c3d4e5f6...``).
+
+    Raises
+    ------
+    RuntimeError
+        If the path is not a Git repository, Git is not installed, or HEAD
+        cannot be resolved.
+    """
+
+    try:
+        rev_short = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=path_to_git_repo
+        ).strip().decode()
+
+        rev_long = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=path_to_git_repo
+        ).strip().decode()
+
+    except FileNotFoundError as e:
+        raise RuntimeError(
+            "Git does not seem to be installed or is not available on the PATH."
+        ) from e
+
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"Path '{path_to_git_repo}' is not a valid Git repository or HEAD is not defined."
+        ) from e
+
+    return rev_short, rev_long
+
+
+def get_window_points(phi, delta_phi):
+    """
+    Compute the number of data points required to cover a given window width.
+
+    Useful for determining the window size for smoothing operations where the
+    desired window is specified in physical units (e.g. temperature in K or
+    time in s) rather than in number of points.
+
+    The result is always an odd number (required by most smoothing filters)
+    and at least 5.
+
+    Parameters
+    ----------
+    phi : array-like
+        The independent variable series (e.g. temperature or time).
+    delta_phi : float
+        Desired window width in the same units as phi.
+
+    Returns
+    -------
+    int
+        Odd number of data points covering the requested window width.
+    """
+
+    # Estimate the typical spacing between consecutive data points.
+    d_phi = np.median(np.diff(phi))
+
+    # Convert the desired window width to a number of points.
+    win_pts = int(round(delta_phi / d_phi))
+    win_pts = max(win_pts, 5)
+
+    # Smoothing filters (e.g. Savitzky-Golay) require an odd window size.
+    if win_pts % 2 == 0:
+        win_pts += 1
+
+    return win_pts
+
+
+def get_peak_value(x_values, y_values):
+    """
+    Find the peak (maximum) of a data series and return its coordinates and index.
+
+    Parameters
+    ----------
+    x_values : array-like or pd.Series
+        The independent variable (e.g. time or temperature).
+    y_values : array-like or pd.Series
+        The dependent variable whose maximum is sought.
+
+    Returns
+    -------
+    x_peak : float
+        The x-value at the peak.
+    y_peak : float
+        The y-value at the peak.
+    peak_idx : int
+        The index of the peak in the input arrays.
+    """
+
+    x_values = series_to_numpy(x_values)
+    y_values = series_to_numpy(y_values)
+
+    peak_idx = np.argmax(y_values)
+
+    x_peak = x_values[peak_idx]
+    y_peak = y_values[peak_idx]
+
+    return x_peak, y_peak, peak_idx
+
+
+def cubic_max_exact(coeffs, x1, x2):
+    """
+    Find the exact maximum of a cubic polynomial on the interval [x1, x2].
+
+    Evaluates the polynomial at its critical points (where the derivative is
+    zero) and at both endpoints, then returns the location and value of the
+    global maximum on that interval.
+
+    Parameters
+    ----------
+    coeffs : array-like
+        Polynomial coefficients in descending order, as returned by
+        ``numpy.polyfit`` with degree 3.
+    x1 : float
+        Left boundary of the search interval.
+    x2 : float
+        Right boundary of the search interval.
+
+    Returns
+    -------
+    x_max : float
+        The x-value at which the polynomial reaches its maximum.
+    y_max : float
+        The maximum value of the polynomial on [x1, x2].
+    """
+
+    p   = np.poly1d(coeffs)
+    dp  = np.polyder(coeffs)    # first derivative (quadratic)
+
+    # Critical points are where the first derivative is zero.
+    crit_x = np.roots(dp)
+    crit_x = crit_x[np.isreal(crit_x)].real
+
+    # Keep only critical points strictly inside the interval.
+    crit_x = crit_x[(crit_x > x1) & (crit_x < x2)]
+
+    # Evaluate at critical points and both endpoints, return the maximum.
+    xs = np.array([x1, x2, *crit_x])
+    ys = p(xs)
+
+    i = np.argmax(ys)
+    return xs[i], ys[i]
+
+
+def interpolate_experiment_data(time, temp, signal_1, signal_2=None,
+                                T_step=0.5, mode="temperature_grid",
+                                nominal_heating_rate=None, non_monotonic="raise"):
+    """
+    Interpolate experimental data to achieve a uniform temperature or time spacing.
+
+    Accepts up to two signal columns, for example for STA data
+    such as mass and heat flow.
+
+    Two processing modes are available:
+
+    1) ``"temperature_grid"``:
+       A temperature grid with spacing ``T_step`` is created and used
+       for interpolation. This assumes strictly increasing temperature.
+
+    2) ``"nominal_rate"``:
+       Time is treated as the independent variable and a time grid is
+       built from the nominal heating rate and the desired temperature
+       step size ``T_step``.
+
+    Parameters
+    ----------
+    time : array-like or pd.Series
+        Time series from the experimental data.
+    temp : array-like or pd.Series
+        Temperature series from the experimental data.
+    signal_1 : array-like or pd.Series
+        First signal from the experimental data, e.g. mass (TGA).
+    signal_2 : array-like or pd.Series, optional
+        Second signal from the experimental data, e.g. heat flow (STA).
+    T_step : float
+        Desired temperature step size in Kelvin, e.g. 0.5 K.
+    mode : str
+        Interpolation mode: ``"nominal_rate"`` or ``"temperature_grid"``.
+    nominal_heating_rate : float, optional
+        Nominal heating rate in K/min. Required when ``mode="nominal_rate"``.
+    non_monotonic : str
+        How to handle non-monotonic temperature data in ``"temperature_grid"``
+        mode. Options are ``"raise"``, ``"warn"``, or ``"ignore"``.
+
+    Returns
+    -------
+    tuple
+        ``(new_time, new_temp, new_signal_1)`` or
+        ``(new_time, new_temp, new_signal_1, new_signal_2)`` if signal_2
+        is provided.
+
+    Raises
+    ------
+    ValueError
+        If ``T_step`` is not positive, input arrays have inconsistent lengths,
+        ``non_monotonic`` receives an unknown value, or the mode is unknown.
+    """
+
+    time     = series_to_numpy(time)
+    temp     = series_to_numpy(temp)
+    signal_1 = series_to_numpy(signal_1)
+
+    if signal_2 is not None:
+        signal_2 = series_to_numpy(signal_2)
+
+    if T_step <= 0:
+        raise ValueError("T_step must be greater than zero.")
+
+    if not (len(time) == len(temp) == len(signal_1)):
+        raise ValueError("time, temp, and signal_1 must have the same length.")
+
+    if signal_2 is not None and len(signal_2) != len(time):
+        raise ValueError("signal_2 must have the same length as time and temp.")
+
+    if mode == "nominal_rate":
+
+        if not np.all(np.diff(time) > 0):
+            raise ValueError(
+                "Time data is not strictly monotonically increasing. "
+                "Time-based interpolation may be unreliable."
+            )
+
+        # Convert heating rate from K/min to K/s to match time in seconds.
+        beta   = nominal_heating_rate / 60
+        t_step = T_step / beta
+
+        t_start  = time[0]
+        t_end    = time[-1]
+        new_time = np.arange(t_start, t_end, t_step)
+
+        new_temp     = np.interp(new_time, time, temp)
+        new_signal_1 = np.interp(new_time, time, signal_1)
+
+        if signal_2 is not None:
+            new_signal_2 = np.interp(new_time, time, signal_2)
+            return new_time, new_temp, new_signal_1, new_signal_2
+
+        return new_time, new_temp, new_signal_1
+
+    elif mode == "temperature_grid":
+
+        if not np.all(np.diff(temp) > 0):
+            msg = (
+                "Temperature data is not strictly monotonically increasing. "
+                "Temperature-based interpolation may be unreliable."
+            )
+            if non_monotonic == "raise":
+                raise ValueError(msg)
+            elif non_monotonic == "warn":
+                warnings.warn(msg, stacklevel=2)
+            elif non_monotonic == "ignore":
+                pass
+            else:
+                raise ValueError(f"Unknown option for non_monotonic: {non_monotonic!r}")
+
+        T_start  = temp[0]
+        T_end    = temp[-1]
+        new_temp = np.arange(T_start, T_end, T_step)
+
+        new_time     = np.interp(new_temp, temp, time)
+        new_signal_1 = np.interp(new_temp, temp, signal_1)
+
+        if signal_2 is not None:
+            new_signal_2 = np.interp(new_temp, temp, signal_2)
+            return new_time, new_temp, new_signal_1, new_signal_2
+
+        return new_time, new_temp, new_signal_1
+
+    else:
+        raise ValueError(f"Mode {mode!r} is unknown. Use 'nominal_rate' or 'temperature_grid'.")
+
+
+def format_export_df(data_frame, column_decimals):
+    """
+    Create a formatted export copy of a pandas DataFrame.
+
+    Each specified column is converted to a fixed-decimal string
+    representation, which ensures consistent formatting when writing
+    results to CSV or Markdown tables.
+
+    Parameters
+    ----------
+    data_frame : pd.DataFrame
+        The DataFrame to format. It is not modified in place.
+    column_decimals : dict
+        Mapping of column name to the number of decimal places, e.g.
+        ``{"Temperature (K)": 2, "HRR (kW/m²)": 1}``.
+
+    Returns
+    -------
+    pd.DataFrame
+        A copy of ``data_frame`` with the specified columns formatted
+        as strings.
+    """
+
+    export_df = data_frame.copy()
+    for col, ndigits in column_decimals.items():
+        if col in export_df.columns:
+            export_df[col] = export_df[col].map(
+                lambda x, n=ndigits: f"{x:.{n}f}" if pd.notna(x) else ""
+            )
+
+    return export_df
