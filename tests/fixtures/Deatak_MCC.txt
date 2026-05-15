@@ -1,0 +1,15 @@
+File Name:	Deatak_MCC.txt
+Version: 8.3.7.3
+Sample ID:	Wood
+Sample Mass (mg):	2.0000
+Heating Rate (C/s):	1.0000
+T Correction Coefficients:	0.308738730	0.013615500	0.000000000
+Time Shift (s):	14.0
+Pre-Test Comments:
+@
+Time (s)	Temperature (C)	HRR (W/g)	Heating Rate (C/s)	Combustor Temp (C)
+0.000	88.247	0.202	-0.054	900.419
+0.501	88.201	-0.605	-0.076	900.440
+1.001	88.185	0.025	-0.062	900.422
+1.501	88.159	-1.972	-0.042	900.418
+2.001	88.125	-3.749	-0.061	900.445

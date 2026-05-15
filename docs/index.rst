@@ -31,3 +31,4 @@ functions, and utility modules used in FireSciPy.
    reference/pyrolysis
    reference/handcalculation
    reference/utils
+   reference/instruments

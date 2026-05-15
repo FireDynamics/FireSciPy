@@ -1,0 +1,21 @@
+#EXPORTTYPE:                 ;DATA ALL                                 ;;;
+#FORMAT:                     ;NETZSCH5                                 ;;;
+#FTYPE:                      ;ASCII                                    ;;;
+#DECIMAL:                    ;COMMA                                    ;;;
+#SEPARATOR:                  ;SEMICOLON                                ;;;
+#INSTRUMENT:                 ;NETZSCH STA 449F5                        ;;;
+#REMARK:                     ;                                         ;;;
+#SAMPLE MASS /mg:            ;5,28;;;
+#REFERENCE MASS /mg:         ;0;;;
+#DSC RANGE /�V:              ;5000;;;
+#EXO:                        ;-1;;;
+#RANGE:                      ;25�C/5,0(K/min)/600�C                    ;;;
+#SEGMENT:                    ;S1/1                                     ;;;
+#SEG. 1:                     ;25�C/5,0(K/min)/600�C                    ;;;
+;;;;
+##Temp./�C;Time/min;DSC/(mW/mg);Mass/%;Sensit./(uV/mW)
+29,958;0;7,67E-02;99,99772;1,06173
+30,458;1,57633;8,44E-02;99,22316;1,06235
+30,958;1,92678;9,49E-02;99,33139;1,06296
+31,458;2,18789;0,10395;99,38054;1,06358
+31,958;2,40647;0,11035;99,31273;1,06419

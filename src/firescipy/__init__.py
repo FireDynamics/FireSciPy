@@ -7,6 +7,7 @@ from . import utils
 from . import pyrolysis
 from . import constants
 from . import handcalculation
+from . import instruments
 from importlib.metadata import PackageNotFoundError, version
 
 
