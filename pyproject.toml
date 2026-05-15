@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "firescipy"
-version = "0.0.7"
+version = "0.0.8"
 description = "FireSciPy: Fundamental algorithms from the field of fire science, for computations with Python."
 readme = "README.md"
 keywords = ["Fire Safety Engineering", "fire", "pyrolysis", "kinetics", "FDS"]
