@@ -445,8 +445,11 @@ def compute_conversion(database, condition="all", setup="constant_heating_rate")
     Returns
     -------
     None
-        Updates the database in place by adding conversion data under
-        each condition.
+        Updates the database in place by adding a ``conversion`` DataFrame
+        under each condition. The DataFrame contains ``Time``,
+        ``Temperature_Avg``, the signal column, and ``Alpha``.
+        For differential data, ``dAlpha_dt`` is also included, computed
+        directly from the raw signal without numerical differentiation.
     """
 
     # Validate setup
@@ -488,21 +491,36 @@ def compute_conversion(database, condition="all", setup="constant_heating_rate")
         combined_data = database["experiments"]["TGA"][setup][cond]["combined"]
         time = combined_data["Time"]
         temp_avg = combined_data["Temperature_Avg"]
-        mass_avg = combined_data["Mass_Avg"]
 
+        # Get signal column name dynamically from general_info
+        signal_name = database["general_info"].get("signal", {}).get("name", "Signal")
+        signal_col = f"{signal_name}_Avg"
+        signal_avg = combined_data[signal_col]
 
         # Compute conversion based on data type
         if data_type == "integral":
-            alpha = integral_conversion(mass_avg)  # Optionally pass m_0 and m_f here
-        elif data_type == "differential":
-            alpha = differential_conversion(mass_avg)  # Placeholder for differential logic
+            alpha = integral_conversion(signal_avg)  # Optionally pass m_0 and m_f here
 
-        # Store the conversion data back in the database
-        conversion_data = pd.DataFrame({
-            "Time": time,
-            "Temperature_Avg": temp_avg,
-            "Mass_Avg": mass_avg,
-            "Alpha": alpha})
+            # Store the conversion data back in the database
+            conversion_data = pd.DataFrame({
+                "Time": time,
+                "Temperature_Avg": temp_avg,
+                signal_col: signal_avg,
+                "Alpha": alpha})
+
+        elif data_type == "differential":
+            alpha = differential_conversion(time, signal_avg)
+            Delta_H_total = trapezoid(signal_avg, time)  # needed for exact dα/dt
+            dAlpha_dt = signal_avg / Delta_H_total
+
+            # Store the conversion data back in the database
+            conversion_data = pd.DataFrame({
+                "Time": time,
+                "Temperature_Avg": temp_avg,
+                signal_col: signal_avg,
+                "Alpha": alpha,
+                "dAlpha_dt": dAlpha_dt})
+
         database["experiments"]["TGA"][setup][cond]["conversion"] = conversion_data
 
     # Process each condition
@@ -541,8 +559,10 @@ def compute_conversion_levels(database, desired_levels=None, setup="constant_hea
     Returns
     -------
     None
-        Updates the database in place by adding the interpolated
-        conversion levels under each condition and setup.
+        Updates the database in place by adding a ``conversion_fractions``
+        DataFrame under each condition. The DataFrame contains ``Time``,
+        ``Temperature_Avg``, and ``Alpha`` at each desired conversion level.
+        For differential data, ``dAlpha_dt`` is also interpolated and included.
     """
 
     # Validate setup
@@ -579,19 +599,9 @@ def compute_conversion_levels(database, desired_levels=None, setup="constant_hea
 
     # Helper function to process a single condition
     def process_condition(cond):
-        # # Check if combined data exists
-        # if "combined" not in database["experiments"]["TGA"][setup][cond]:
-        #     raise KeyError(f" * No 'combined' data found for condition '{cond}' under '{setup}' setup.")
-
-#         # Check for data type
-#         data_type = database["experiments"]["TGA"][setup][cond].get("data_type")
-#         if data_type not in {"integral", "differential"}:
-#             raise ValueError(f" * Invalid or missing data type for condition '{cond}' under '{setup}' setup.")
-
         # Check if conversion data exists
         if "conversion" not in database["experiments"]["TGA"][setup][cond]:
             raise KeyError(f" * Conversion data is missing for condition '{cond}'. Run `compute_conversion` first.")
-
 
         # Fetch conversion data
         conversion_data = database["experiments"]["TGA"][setup][cond]["conversion"]
@@ -609,19 +619,218 @@ def compute_conversion_levels(database, desired_levels=None, setup="constant_hea
         new_time = np.interp(desired_levels, alpha_avg, time)
         new_temp = np.interp(desired_levels, alpha_avg, temp_avg)
 
-        # Store the conversion levels back in the database
-        conversion_fractions = pd.DataFrame({
+        # dAlpha_dt is only present for differential data and needed for the Friedman method
+        data_type = database["experiments"]["TGA"][setup][cond].get("data_type")
+        conversion_fractions_data = {
             "Time": new_time,
             "Temperature_Avg": new_temp,
-            "Alpha": desired_levels})
-        database["experiments"]["TGA"][setup][cond]["conversion_fractions"] = conversion_fractions
+            "Alpha": desired_levels}
+        if data_type == "differential":
+            conversion_fractions_data["dAlpha_dt"] = np.interp(desired_levels, alpha_avg, conversion_data["dAlpha_dt"])
+        database["experiments"]["TGA"][setup][cond]["conversion_fractions"] = pd.DataFrame(conversion_fractions_data)
 
     # Process each condition
     for cond in conditions_to_process:
         process_condition(cond)
 
 
-def KAS_Ea(temperature, heating_rate, B=1.92, C=1.0008):
+def Ea_Friedman(temperature, dalpha_dt):
+    """
+    Friedman method for estimating the activation energy at a given
+    conversion level :math:`E_{\\alpha}`.
+
+    This is a differential isoconversional method based on a linear
+    regression of :math:`\\ln(d\\alpha/dt)` against :math:`1/T` across
+    experiments conducted under different temperature programs.
+
+    The Friedman equation is presented below.
+
+    .. math::
+
+        \ln\left(\frac{d\alpha}{dt}\right)_{\alpha,i}
+        = \ln\left[f(\alpha)A_\alpha\right] - \frac{E_\alpha}{R T_{\alpha,i}}
+
+    Formula 3.3 in: Vyazovkin et al. (2011). ICTAC Kinetics Committee
+    recommendations for performing kinetic computations on thermal analysis data
+    *Thermochimica Acta*, 520(1–2), 1–19.
+    https://doi.org/10.1016/j.tca.2011.03.034
+
+    Parameters
+    ----------
+    temperature : array-like
+        Sample temperatures in Kelvin.
+    dalpha_dt : array-like
+        Change in conversion (dalpha/dt) in 1 per second.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+
+        - slope (float): Slope of the linear fit.
+        - intercept (float): Intercept of the linear fit.
+        - Ea_i (float): Apparent activation energy in J/mol.
+        - fit_points (tuple): Data points (x, y) used for the linear fit.
+    """
+
+    # Ensure numpy arrays
+    temperature = series_to_numpy(temperature)
+    dalpha_dt = series_to_numpy(dalpha_dt)
+
+    # Input validation
+    if len(temperature) != len(dalpha_dt):
+        raise ValueError("temperature and dalpha_dt must have the same length.")
+
+    # Prepare x and y data for the linear fit
+    data_x = 1/temperature
+    data_y = np.log(dalpha_dt)
+    fit_points = (data_x, data_y)
+
+    # Perform the linear fit
+    popt, pcov = curve_fit(linear_model,
+                           data_x, data_y,
+                           maxfev=10000)
+
+    # Extract the fitted parameters
+    m_fit, b_fit = popt
+
+    # Calculate estimate of (Ea_i), in J/mol.
+    Ea_i = -(m_fit * GAS_CONSTANT)
+
+    # TODO: consider to use namedtuple or dataclass
+    return popt, Ea_i, fit_points
+
+
+def compute_Ea_Friedman(database, data_keys=["experiments", "TGA", "constant_heating_rate"]):
+    """
+    Wrapper function to easily compute activation energies using the Friedman differential isoconversional method.
+
+    This function applies the Friedman method to interpolated conversion data
+    (as prepared by :func:`compute_conversion_levels`) and estimates the
+    activation energy (:math:`E_a`) at each conversion level. It computes
+    linear regression statistics, including RMSE and R², and stores the results
+    in a DataFrame.
+
+    The final DataFrame is stored in the database at the specified location
+    defined by `data_keys`.
+
+    This function requires that :func:`compute_conversion_levels` has been
+    called beforehand to prepare the input data.
+
+    Parameters
+    ----------
+    database : dict
+        The main data structure storing all experimental data.
+        Must follow the format initialized by
+        :func:`initialize_investigation_skeleton`.
+    data_keys: list
+        Keys that define the path to the relevant dataset inside the database.
+        For example: ["experiments", "TGA", "constant_heating_rate"].
+
+    Returns
+    -------
+    None
+        Adds a DataFrame named ``Ea_results_Friedman`` to the corresponding location
+        in the database. The DataFrame contains:
+
+        - ``Conversion``: Conversion level α
+        - ``Ea``: Activation energy in J/mol
+        - ``m_fit``: Slope of the linear fit
+        - ``b_fit``: Intercept of the linear fit
+        - ``R_squared``: Coefficient of determination
+        - ``RMSE``: Root mean square error
+        - ``x{i}``, ``y{i}``: x and y fit points per temperature program i
+    """
+
+    # Safely access the dataset
+    dataset = get_nested_value(database, data_keys)
+    if dataset is None:
+        raise ValueError(f"Dataset not found at the specified keys: {data_keys}")
+
+    # Check that all conditions use differential data, required for the Friedman method
+    for key in dataset.keys():
+        if dataset[key].get("data_type") == "integral":
+            raise ValueError(
+                f"Condition '{key}' has integral raw data. The Friedman method requires "
+                "differential raw data. Differentiate and smooth your data manually, then "
+                "add it as a new entry with data_type='differential'.")
+
+    # Safely access the parent dictionary to store results
+    store_Ea = get_nested_value(database, data_keys[:-1])
+    if store_Ea is None:
+        raise ValueError(f"Unable to store results; parent keys not found: {data_keys[:-1]}")
+
+    # Sort the keys of the dataset based on the set values
+    set_value_keys = sorted(dataset.keys(), key=lambda x: dataset[x]["set_value"]["value"])
+
+    # Get conversion levels from the first condition (same for all)
+    conversion_levels = dataset[set_value_keys[0]]["conversion_fractions"]["Alpha"]
+
+    # Prepare data collection.
+    Ea = list()
+    m = list()
+    b = list()
+    r_squared = list()
+    rmse = list()
+
+    # Prepare placeholders for x and y values
+    xy_data = {f"x{i+1}": [] for i in range(len(set_value_keys))}
+    xy_data.update({f"y{i+1}": [] for i in range(len(set_value_keys))})
+
+    # Iterate through conversion levels and compute results
+    for conv_id, conversion_level in enumerate(conversion_levels):
+        conversion_temperatures = list()
+        conversion_dAlpha_dts = list()
+        for set_value_key in set_value_keys:
+            conv_temp = dataset[set_value_key]["conversion_fractions"]["Temperature_Avg"].iloc[conv_id]
+            conv_dAlpha_dt = dataset[set_value_key]["conversion_fractions"]["dAlpha_dt"].iloc[conv_id]
+            conversion_temperatures.append(conv_temp)
+            conversion_dAlpha_dts.append(conv_dAlpha_dt)
+
+        # Compute activation energy
+        popt, Ea_i, fit_points = Ea_Friedman(conversion_temperatures, conversion_dAlpha_dts)
+        Ea.append(Ea_i)
+
+        # Extract and store the fitted parameters.
+        m_fit, b_fit = popt
+        m.append(m_fit)
+        b.append(b_fit)
+
+        # Generate y-values from the fitted model.
+        data_x, data_y = fit_points
+        y_fit = linear_model(data_x, m_fit, b_fit)
+
+        # Calculate residuals.
+        residuals_i = calculate_residuals(data_y, y_fit)
+
+        # Calculate R-squared.
+        r_squared_i = calculate_R_squared(residuals_i, data_y)
+        r_squared.append(r_squared_i)
+
+        # Calculate RMSE.
+        rmse_i = calculate_RMSE(residuals_i)
+        rmse.append(rmse_i)
+
+        # Store x and y values dynamically
+        for i, (x_val, y_val) in enumerate(zip(data_x, data_y)):
+            xy_data[f"x{i+1}"].append(x_val)
+            xy_data[f"y{i+1}"].append(y_val)
+
+    # Combine results
+    Ea_results = pd.DataFrame(
+        {"Conversion": conversion_levels,
+         "Ea": np.array(Ea),
+         "m_fit": np.array(m),
+         "b_fit": np.array(b),
+         "R_squared": np.array(r_squared),
+         "RMSE": np.array(rmse),
+         **xy_data})
+
+    # Store results.
+    store_Ea["Ea_results_Friedman"] = Ea_results
+
+
+def Ea_KAS(temperature, heating_rate, B=1.92, C=1.0008):
     """
     Kissinger–Akahira–Sunose method (KAS), with Starink improvement by default.
     Estimates the activation energy for a given level of conversion
@@ -725,7 +934,7 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
         Keys that define the path to the relevant dataset inside the database.
         For example: ["experiments", "TGA", "constant_heating_rate"].
     **kwargs
-        Additional arguments passed to :func:`KAS_Ea`.
+        Additional arguments passed to :func:`Ea_KAS`.
         For example, to override the default Starink constants (B, C).
 
     Returns
@@ -781,7 +990,7 @@ def compute_Ea_KAS(database, data_keys=["experiments", "TGA", "constant_heating_
             conversion_temperatures.append(conv_temp)
 
         # Compute activation energy
-        popt, Ea_i, fit_points = KAS_Ea(conversion_temperatures, set_values, **kwargs)
+        popt, Ea_i, fit_points = Ea_KAS(conversion_temperatures, set_values, **kwargs)
         Ea.append(Ea_i)
 
         # Extract and store the fitted parameters.
