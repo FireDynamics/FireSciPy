@@ -183,12 +183,12 @@ Looping over the above dictionary, a temperature program is created for each nom
         t_array = fsp.utils.series_to_numpy(hr_model["Time"])
         T_array = fsp.utils.series_to_numpy(hr_model["Temperature"])
         # Get overview over temperature resolution
-        ΔT = temp_model[1] - temp_model[0]
+        ΔT = T_array[1] - T_array[0]
         print(f"Temperature resolution ({hr_label}): ΔT = {ΔT} K")
         # Compute conversion for decelerating reaction (n-th order)
         t_sol, alpha_sol = fsp.pyrolysis.modeling.solve_kinetics(
-            t_array=time_model,
-            T_array=temp_model,
+            t_array=t_array,
+            T_array=T_array,
             A=A,
             E=E,
             alpha0=alpha0,

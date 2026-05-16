@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "firescipy"
-version = "0.0.6"
+version = "0.0.9"
 description = "FireSciPy: Fundamental algorithms from the field of fire science, for computations with Python."
 readme = "README.md"
 keywords = ["Fire Safety Engineering", "fire", "pyrolysis", "kinetics", "FDS"]
@@ -31,6 +31,12 @@ dependencies = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/firescipy"]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [project.urls]
 Repository = "https://github.com/FireDynamics/FireSciPy"

@@ -2,7 +2,15 @@
 
 Fundamental algorithms from the field of fire science and fire safety engineering, for computations with Python.
 
-Documentation is available here: [![FireSciPy Documentation](https://img.shields.io/badge/docs-online-brightgreen)](https://FireDynamics.github.io/FireSciPy/)
+[![FireSciPy Documentation](https://img.shields.io/badge/docs-online-brightgreen)](https://FireDynamics.github.io/FireSciPy/)
+[![PyPI version](https://badge.fury.io/py/firescipy.svg)](https://pypi.org/project/firescipy/)
+
+
+## Installation
+
+```
+pip install firescipy
+```
 
 Examples are available in Jupyter notebooks in the [FireSciPy repo on GitHub](https://github.com/FireDynamics/FireSciPy).
 
